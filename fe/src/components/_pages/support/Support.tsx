@@ -27,6 +27,7 @@ export default function SupportPage() {
                         messages.map((message: string) => {
                             return (
                                 <div
+                                    key={message}
                                     style={{
                                         width: '100%',
                                         display: 'flex',
