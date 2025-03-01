@@ -1,0 +1,89 @@
+{
+  "expo": {
+    "name": "QuickGate",
+    "slug": "QuickGate",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#151A23"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "xyz.quickgate.quickgate",
+      "buildNumber": "1.0.5",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Allow QuickGate to access your location to show your position on the map.",
+        "NSLocationAlwaysUsageDescription": "Allow QuickGate to always access your location to provide location-based features."
+      },
+      "appleTeamId": "8Z69NK39Q7"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#151A23"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#151A23"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera, it will be used to take photos of your photo for AI analysis"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera, it will be used to take photos of your photo for AI analysis",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos, it will be used to select photos of your photo for AI analysis"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+          "locationPermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
+      "expo-secure-store",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a9f3ffed-9bdb-45e4-a783-050a9a5fdf20"
+      }
+    },
+    "owner": "asbeyy"
+  }
+}

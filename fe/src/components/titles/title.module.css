@@ -1,0 +1,95 @@
+
+
+.containerTitle{
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0px 0px;
+    margin-bottom: 20px;
+    
+
+
+    .title{
+        font-size: 20px;
+        font-weight: 500;
+        color: #ffffff;
+
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+    }
+    
+    .subtitle{
+        font-size: 14px;
+        font-weight: 300;
+        color: #ffffff84;
+        
+
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    .titleSkeleton{
+        margin-top: 10px;
+        font-size: 20px;
+        font-weight: 500;
+        color: #000;
+        margin-bottom: 10px;
+
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+
+        width: 270px;
+        border-radius: 10px;
+        background: linear-gradient(110deg, #33333369 8%, #44444498 18%, #33333359 33%);
+        background-size: 200% 100%;
+        animation: 1.5s shine linear infinite;
+    }
+
+    .title span{
+        transition: opacity 2s;
+    }
+
+    .subtitleSkeleton{
+        font-size: 14px;
+        font-weight: 300;
+        color: #00000084;
+        margin-bottom: 20px;
+
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+
+        width: 40%;
+        border-radius: 10px;
+        background: #eeeeee71;
+        background: linear-gradient(110deg, #33333369 8%, #44444498 18%, #33333359 33%);
+        border-radius: 5px;
+        filter: blur(1px);
+        background-size: 200% 100%;
+        animation: 1.5s shine linear infinite;
+
+    }
+}
+
+
+.containerTitleXL{
+    font-size: 3rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--text), var(--text-secondary));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    transition: all 300ms ease;
+}
+
+@keyframes shine {
+    to {
+        background-position: 200% 100%;
+    }
+}
