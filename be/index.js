@@ -5,7 +5,7 @@ const { createServer } = require('node:http')
 const { Server } = require('socket.io');
 const cors = require("cors");
 
-const { account, payments, gate, ticket, vehicles } = require("./src/routes/");
+const { account, payments, gate, ticket, vehicles, device } = require("./src/routes/");
 const { errorHandler } = require("./src/middleware");
 const connectDatabase = require("./src/database/connection");
 const socketHandler = require("./src/sockets/calls")
@@ -33,6 +33,7 @@ app.use("/payments", payments);
 app.use("/gate", gate);
 app.use("/ticket", ticket);
 app.use("/vehicles", vehicles);
+app.use("/device", device)
 
 // Sockets
 socketHandler(io);

@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { Account } = require("../database/schemas");
+const { Account, Device } = require("../database/schemas");
 
 async function AuthenticateToken(req) {
   if (!req.headers.authorization) {
@@ -78,6 +78,57 @@ async function AuthenticateTokenSockets(token) {
     };
   }
 }
+async function AuthenticateTokenDevice(req){
+  if (!req.headers.authorization) {
+    return {
+      success: false,
+      account: null
+    
+    
+    };
+  }
+
+  if (req.headers.authorization.split(" ")[0] !== "Bearer") {
+    return {
+      success: false,
+      account: null
+    };
+  }
+
+  if (req.headers.authorization.split(" ")[1] === "null") {
+    return {
+      success: false,
+      account: null
+    };
+  }
+
+  const token = req.headers.authorization.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const account = await Device.findOne({
+      username: decoded.username,
+      password: decoded.password,
+    });
+
+    if (!account) {
+      return {
+        success: false,
+        account: null,
+      };
+    }
+
+    return {
+      success: true,
+      account: account,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      account: null,
+    };
+  }
+}
 
 function signToken(email, password) {
   return jwt.sign(
@@ -86,9 +137,18 @@ function signToken(email, password) {
     { expiresIn: "12h" }
   );
 }
+function signTokenDevice(username, password) {
+  return jwt.sign(
+    { username: username, password: password },
+    process.env.JWT_SECRET,
+    //{ expiresIn: "12h" }
+  );
+}
 
 module.exports = {
   AuthenticateToken,
   AuthenticateTokenSockets,
+  AuthenticateTokenDevice,
   signToken,
+  signTokenDevice
 };

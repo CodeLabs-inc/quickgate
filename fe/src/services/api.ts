@@ -609,3 +609,21 @@ export const readPlate = async (files: File[]) => {
 
   return await response.json()
 }
+
+
+/* Devices */
+
+export const getDevices = async () => {
+  const response = await fetch(`${API_URL}/device/get/all`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getToken()}`,
+    },
+  });
+
+  return {
+    data: await response.json(),
+    status: response.status
+  };
+}

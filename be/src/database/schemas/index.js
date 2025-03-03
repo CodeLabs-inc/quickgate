@@ -5,6 +5,8 @@ const History = require('./_history');
 const Subscriptions = require('./_subscriptions');
 const Vehicles = require('./_vehicles');
 const Chat = require('./_chat')
+const Device = require('./_device')
+
 module.exports = {
     Account,
     Gate,
@@ -12,5 +14,6 @@ module.exports = {
     History,
     Subscriptions,
     Vehicles,
-    Chat
+    Chat,
+    Device
 }

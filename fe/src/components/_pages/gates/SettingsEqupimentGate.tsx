@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react"
+import { getDevices } from "@/services/api"
+import toast from "react-hot-toast"
 
 // Device type definition
 type DeviceStatus = "online" | "offline" | "warning" | "maintenance"
@@ -32,7 +34,7 @@ interface Device {
 }
 
 // Sample data
-const devices: Device[] = [
+const devices1: Device[] = [
   {
     id: "comp-001",
     name: "Main Office PC",
@@ -75,8 +77,52 @@ export default function SettingsEquipmentGate() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
 
+
+  const [devices, setDevices] = useState<any>([])
+
+
+
+  const handleRefresh = async () => {
+  
+    handleFetchDevices()
+  }
+  const handleFetchDevices = async () => {
+    setDevices([])
+    const call = await getDevices()
+
+    if (call.status == 400){
+      toast.error('Error nel cargar los dispositivos')
+      return
+    }
+
+    if (call.status == 201){
+      return 
+    }
+
+    if (call.status === 200){
+      const deviceObject = {
+        id: call.data.data._id,
+        name: 'Servidor Principal',
+        type: 'computer',
+        status: 'online',
+        lastSeen: '--',
+        location: 'HQ Parqueo',
+        ipAddress: call.data.data.ip_address
+      }
+
+      setDevices((prevDevices: any) => [...prevDevices, deviceObject])
+    }
+
+    console.log(call)
+  }
+
+
+  useEffect(()=> {
+    handleFetchDevices()
+  }, [])
+
   // Filter devices based on search query and active tab
-  const filteredDevices = devices.filter((device) => {
+  const filteredDevices = devices.filter((device: any) => {
     const matchesSearch =
       device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       device.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,7 +143,6 @@ export default function SettingsEquipmentGate() {
         return <Gate className="h-5 w-5" />
     }
   }
-
   // Get status badge based on device status
   const getStatusBadge = (status: DeviceStatus) => {
     switch (status) {
@@ -131,6 +176,7 @@ export default function SettingsEquipmentGate() {
         )
     }
   }
+  
 
   return (
     <div className="dark w-full min-h-screentext-gray-200 ">
@@ -161,6 +207,9 @@ export default function SettingsEquipmentGate() {
                   background: "var(--steam-color)",
                   cursor: 'pointer!'
                 }}
+                onClick={
+                  handleRefresh
+                }
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
