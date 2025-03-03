@@ -1,11 +1,14 @@
 require("dotenv").config();
 
 const express = require("express");
+const { createServer } = require('node:http')
+const { Server } = require('socket.io');
 const cors = require("cors");
 
 const { account, payments, gate, ticket, vehicles } = require("./src/routes/");
 const { errorHandler } = require("./src/middleware");
 const connectDatabase = require("./src/database/connection");
+const socketHandler = require("./src/sockets/calls")
 
 
 //Database connection
@@ -13,6 +16,12 @@ connectDatabase()
 
 // Create express app
 const app = express();
+const server = createServer(app)
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
 
 // Middlewares
 app.use(cors());
@@ -25,12 +34,13 @@ app.use("/gate", gate);
 app.use("/ticket", ticket);
 app.use("/vehicles", vehicles);
 
-
+// Sockets
+socketHandler(io);
 
 /* Error middleware */
 app.use(errorHandler);
 const PORT = process.env.PORT || 4000;
-const server = app.listen(PORT, () => {
+const globalServer = server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
@@ -38,5 +48,5 @@ const server = app.listen(PORT, () => {
 process.on("unhandledRejection", (err) => {
   console.log(`${err.message}`);
   //Close server & exit process
-  server.close(() => process.exit(1));
+  globalServer.close(() => process.exit(1));
 });

@@ -23,7 +23,7 @@ export default function InputAnimated({onSend}: InputAnimatedProps) {
   }
 
   return (
-    <div className="relative mx-auto h-[200px] flex items-end justify-center" style={{width: '100%'}}>
+    <div className="relative mx-auto h-[180px] flex items-end justify-center" style={{width: '100%'}}>
 
 
       {/* Animated background balls */}
@@ -83,7 +83,7 @@ export default function InputAnimated({onSend}: InputAnimatedProps) {
                 handleSubmit(e)
               }
             }}
-            placeholder="Ask me anything..."
+            placeholder="Escribir un mensaje.."
             className="w-full px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-lg text-white text-[14px] placeholder:text-white/30 placeholder:text-[14px] focus:outline-none focus:ring-white/30 focus:ring-2  transition-all duration-300"
           />
           <Button

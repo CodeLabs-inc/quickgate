@@ -8,6 +8,7 @@ import Title from '@/components/titles/Title'
 import CardAlert from '@/components/cards/CardAlert'
 import UnderConstruction from '@/components/404/UnderConstruction'
 import SupportPage from '@/components/_pages/support/Support'
+import CallPage from '@/components/_pages/support/Call'
 
 
 
@@ -20,15 +21,15 @@ function Main() {
   return (
     <div className={styles.main}>
       <Header title={'Overview'} />
-      <Page notScrollable>
+      <Page>
         
         <Title
           isLoading={false}
-          title={'Soporte'}
-          subtitle={'Escribe al soporte, para obtener asistencia'}
+          title={'Contactar Soporte Videollamada'}
+          subtitle={'llamada urgente al soporte'}
           
         />
-        <SupportPage/>
+        <CallPage/>
         
       </Page>
     </div>

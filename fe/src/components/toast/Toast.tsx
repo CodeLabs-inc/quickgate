@@ -1,14 +1,21 @@
+
+import Link from "next/link";
 import toast from "react-hot-toast";
 
-const ToastCustom = (type: string,message: string) => {
+const ToastCustom = (type: string,message: string, href?: string) => {
+
     toast.custom((t) => (
-        <div
+      <Link href={href || "#"}
           className={`${
             t.visible ? 'animate-enter' : 'animate-leave'
           } max-w-md w-full shadow-lg rounded-lg  flex ring-1 ring-black ring-opacity-5`}
           style={{
             backgroundColor: 'var(--card-background)',
             zIndex: '999999',
+          }}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevents react-hot-toast from dismissing the toast
+            location.href = href ?? '/dashboard'
           }}
         >
           <div className="flex-1 w-0 p-4">
@@ -30,15 +37,7 @@ const ToastCustom = (type: string,message: string) => {
               </div>
             </div>
           </div>
-          <div className="flex border-gray-200">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-white-200 hover:text-indigo-500 focus:outline-none"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        </Link>
       ))
 }
 

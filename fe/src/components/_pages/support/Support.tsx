@@ -1,59 +1,86 @@
+import { AuthContext } from '@/components/_context/AuthContext'
+import { SocketContext } from '@/components/_context/SocketContext'
 import InputAnimated from '@/components/inputs/inputAnimated'
 import { HandHelping } from 'lucide-react'
-import React, { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import React, { useContext, useEffect, useRef, useState } from 'react'
 
 export default function SupportPage() {
+    const scrollableRef = useRef<any>(null)
+    const { sendMessageOperator, sendMessageAdmin, messages } = useContext(SocketContext)
+    const { role } = useContext(AuthContext)
+    const searchParams = useSearchParams()
 
-    const [messages, setMessages] = useState<any>([])
+
+    const gateId = searchParams.get('gateId')
+
+
+
+    const handleSendMessage = (message: string) => {
+        if (role === 'operator') {
+            sendMessageOperator(message)
+        } else {
+            if (!gateId) return
+            sendMessageAdmin(message, gateId)
+        }
+
+    }
+
+
 
 
     return (
-        <div className='h-full w-full'
+        <div className='w-full'
             style={{
+                height: '100%',
                 position: 'relative'
             }}
         >
             <section
+                ref={scrollableRef}
                 style={{
-                    height: '100%',
-                    width: '100%',
-
-                    paddingBottom: '200px'
                 }}
             >
                 {
                     messages.length > 0
                         ?
-                        messages.map((message: string) => {
-                            return (
-                                <div
-                                    key={message}
-                                    style={{
-                                        width: '100%',
-                                        display: 'flex',
-                                        justifyContent: 'flex-end',
+                        messages
+                            .filter((message: any) => {
+                                if (!message.gateId) return message
+                                if (!gateId) return message
 
-                                    }}
-                                >
-                                    {/* Row container */}
+                                return message.gateId == gateId
 
-                                    {/* Message bubble */}
+                            })
+                            .map((message: any) => {
+                                return (
                                     <div
+                                        key={message.content}
                                         style={{
-                                            padding: "20px",
-                                            background: 'var(--steam-color)',
-                                            borderRadius: '20px 20px 0 20px',
                                             width: '100%',
-                                            maxWidth: '300px',
-                                            marginBottom: '10px',
+                                            display: 'flex',
+                                            justifyContent: role === message.role ? 'flex-end' : 'flex-start',
 
                                         }}
                                     >
-                                        {message}
+                                        {/* Row container */}
+                                        {/* Message bubble */}
+                                        <div
+                                            style={{
+                                                padding: "20px",
+                                                background: 'var(--steam-color)',
+                                                borderRadius: role === message.role ? '20px 20px 0 20px' : '20px 20px 20px 0px',
+                                                width: '100%',
+                                                maxWidth: '300px',
+                                                marginBottom: '10px',
+
+                                            }}
+                                        >
+                                            {message.content}
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })
+                                )
+                            })
                         :
                         <div
                             style={{
@@ -62,7 +89,6 @@ export default function SupportPage() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-
                                 flexDirection: 'column'
                             }}
                         >
@@ -84,25 +110,16 @@ export default function SupportPage() {
                             </p>
                         </div>
                 }
-
             </section>
 
 
-            <div
-                style={{
-                    height: '200px',
-                    width: '100%',
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0
+
+            <InputAnimated
+                onSend={(text) => {
+                    handleSendMessage(text)
                 }}
-            >
-                <InputAnimated
-                    onSend={(text) => {
-                        setMessages([...messages, text])
-                    }}
-                />
-            </div>
+            />
+
         </div>
     )
 }

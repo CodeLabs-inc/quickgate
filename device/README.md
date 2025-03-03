@@ -14,8 +14,8 @@ Este proyecto permite detectar y leer placas de vehículos en videos utilizando 
 
 1. Crear un entorno virtual (recomendado):
 ```bash
-python -m venv venv
-venv\Scripts\activate
+python3 -m venv myenv
+source myenv/bin/activate
 ```
 
 2. Instalar las dependencias:
