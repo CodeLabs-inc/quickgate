@@ -22,7 +22,7 @@ const VideoChat = () => {
             username: 'webrtcuserquickgate',
             credential: 'Alpine',
           },
-        ],
+        ], 
       },
     });
 
