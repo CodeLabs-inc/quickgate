@@ -1,3 +1,4 @@
+import VideoChat from '@/components/calls/PeerCall'
 import VideoCall from '@/components/calls/VIdeoCall'
 import InputAnimated from '@/components/inputs/inputAnimated'
 import { HandHelping } from 'lucide-react'
@@ -14,7 +15,9 @@ export default function CallPage() {
                 position: 'relative'
             }}
         >
-           <VideoCall/>
+
+            <VideoChat/>
+           
         </div>
     )
 }
