@@ -1,11 +1,21 @@
 import { AuthContext } from '@/components/_context/AuthContext'
 import { SocketContext } from '@/components/_context/SocketContext'
 import InputAnimated from '@/components/inputs/inputAnimated'
+import LoaderWhite from '@/components/loaders/LoaderWhite'
 import { HandHelping } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 
-export default function SupportPage() {
+
+export default function Main() {
+    return (
+      <Suspense fallback={<LoaderWhite/>}>
+        <SupportPage/>
+      </Suspense>
+    )
+  }
+
+function SupportPage() {
     const scrollableRef = useRef<any>(null)
     const { sendMessageOperator, sendMessageAdmin, messages } = useContext(SocketContext)
     const { role } = useContext(AuthContext)
