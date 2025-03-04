@@ -12,7 +12,14 @@ import CallPage from '@/components/_pages/support/Call'
 
 
 
-function Main() {
+interface CallsParams {
+  params: {
+    peerId: string
+  }
+}
+
+
+function Main({params}: CallsParams) {
 
 
 
@@ -22,15 +29,14 @@ function Main() {
     <div className={styles.main}>
       <Header title={'Overview'} />
       <Page>
-        
         <Title
           isLoading={false}
           title={'Contactar Soporte Videollamada'}
           subtitle={'llamada urgente al soporte'}
-          
+
         />
-        <CallPage/>
-        
+        <CallPage peerId={params.peerId}/>
+
       </Page>
     </div>
   )

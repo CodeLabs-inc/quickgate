@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
+import styles from './video.module.css'
 
-const VideoChat = () => {
+
+interface VideoChatProps {
+  peerId_sent: string
+}
+
+const VideoChat = ({peerId_sent}: VideoChatProps) => {
   const [peerId, setPeerId] = useState<string>('');
   const [remotePeerId, setRemotePeerId] = useState<string>('');
   const [peer, setPeer] = useState<Peer | null>(null);
@@ -82,8 +88,10 @@ const VideoChat = () => {
         placeholder="Enter remote peer ID"
       />
       <button onClick={callPeer}>Call</button>
-      <video ref={myVideoRef} autoPlay playsInline />
-      <video ref={remoteVideoRef} autoPlay playsInline />
+      <div className={styles.containerVideoFeed}>
+        <video className={styles.videoFeedSmall} ref={myVideoRef} muted autoPlay playsInline />
+        <video className={styles.videoFeedMain} ref={remoteVideoRef} autoPlay playsInline />
+      </div>
     </div>
   );
 };

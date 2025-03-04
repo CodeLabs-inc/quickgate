@@ -4,7 +4,11 @@ import InputAnimated from '@/components/inputs/inputAnimated'
 import { HandHelping } from 'lucide-react'
 import React, { useState } from 'react'
 
-export default function CallPage() {
+interface Props {
+    peerId: string
+}
+
+export default function CallPage({peerId}: Props) {
 
     const [messages, setMessages] = useState<any>([])
 
@@ -16,7 +20,7 @@ export default function CallPage() {
             }}
         >
 
-            <VideoChat/>
+            <VideoChat peerId_sent={peerId}/>
            
         </div>
     )
