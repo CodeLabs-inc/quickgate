@@ -9,10 +9,16 @@ import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import ToastCustom from "../toast/Toast";
 
-export const SocketContext = createContext({
-    sendMessageOperator: (message: string) => {},
-    sendMessageAdmin: (message: string, gateId: string) => {},
-    messages: []
+export const SocketContext = createContext<{
+    sendMessageOperator: (message: string) => void;
+    sendMessageAdmin: (message: string, gateId: string) => void;
+    messages: any[];
+    socket: Socket | null;
+}>({
+    sendMessageOperator: () => {},
+    sendMessageAdmin: () => {},
+    messages: [],
+    socket: null,
 });
 
 interface AuthProviderProps {
@@ -106,7 +112,6 @@ export const SocketProvider = ({ children }: AuthProviderProps) => {
             toast.error("Socket not initialized");
         }
     };
-
     const sendMessageAdmin = (message: string, gateId: string) => {
         if (socket) {
             const messageObject = {
@@ -126,7 +131,7 @@ export const SocketProvider = ({ children }: AuthProviderProps) => {
 
 
     return (
-        <SocketContext.Provider value={{ sendMessageOperator, sendMessageAdmin, messages }}>
+        <SocketContext.Provider value={{ sendMessageOperator, sendMessageAdmin, messages, socket }}>
             {children}
         </SocketContext.Provider>
     );

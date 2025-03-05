@@ -8,7 +8,7 @@ const cors = require("cors");
 const { account, payments, gate, ticket, vehicles, device } = require("./src/routes/");
 const { errorHandler } = require("./src/middleware");
 const connectDatabase = require("./src/database/connection");
-const socketHandler = require("./src/sockets/calls")
+const {socketHandler} = require("./src/sockets/calls")
 
 
 //Database connection

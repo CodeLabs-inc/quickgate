@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
 import styles from './video.module.css'
+import Card from '../cards/Card';
 
 
 interface VideoChatProps {
   peerId_sent: string
 }
 
-const VideoChat = ({peerId_sent}: VideoChatProps) => {
+const VideoChat = ({ peerId_sent }: VideoChatProps) => {
   const [peerId, setPeerId] = useState<string>('');
   const [remotePeerId, setRemotePeerId] = useState<string>('');
   const [peer, setPeer] = useState<Peer | null>(null);
@@ -28,7 +29,7 @@ const VideoChat = ({peerId_sent}: VideoChatProps) => {
             username: 'webrtcuserquickgate',
             credential: 'Alpine',
           },
-        ], 
+        ],
       },
     });
 
@@ -78,21 +79,26 @@ const VideoChat = ({peerId_sent}: VideoChatProps) => {
       });
   };
 
+
   return (
-    <div>
-      <h3>My Peer ID: {peerId}</h3>
-      <input
-        type="text"
-        value={remotePeerId}
-        onChange={(e) => setRemotePeerId(e.target.value)}
-        placeholder="Enter remote peer ID"
-      />
-      <button onClick={callPeer}>Call</button>
-      <div className={styles.containerVideoFeed}>
-        <video className={styles.videoFeedSmall} ref={myVideoRef} muted autoPlay playsInline />
-        <video className={styles.videoFeedMain} ref={remoteVideoRef} autoPlay playsInline />
-      </div>
+    //<div>
+    <div className={styles.containerVideoFeed}>
+      <Card className={styles.controller}>
+        <h3>My Peer ID: {peerId}</h3>
+        <input
+          type="text"
+          value={remotePeerId} 
+          onChange={(e) => setRemotePeerId(e.target.value)}
+          placeholder="Enter remote peer ID"
+        />
+        <button onClick={callPeer}>Call</button>
+      </Card>
+
+
+      <video className={styles.videoFeedSmall} ref={myVideoRef} muted autoPlay playsInline />
+      <video className={styles.videoFeedMain} ref={remoteVideoRef} autoPlay playsInline />
     </div>
+    //</div>
   );
 };
 

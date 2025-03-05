@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/components/_context/AuthContext";
 import { SocketProvider } from "@/components/_context/SocketContext";
+import { CallProvider } from "@/components/_context/CallContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,19 +23,21 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <SocketProvider>
-            <Toaster
-              position="top-right"
-              reverseOrder={false}
-              toastOptions={{
-                duration: 5000,
-                style: {
-                  background: "#333",
-                  color: "#fff",
-                  fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
-                },
-              }}
-            />
-            {children}
+            <CallProvider>
+              <Toaster
+                position="top-right"
+                reverseOrder={false}
+                toastOptions={{
+                  duration: 5000,
+                  style: {
+                    background: "#333",
+                    color: "#fff",
+                    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+                  },
+                }}
+              />
+              {children}
+            </CallProvider>
           </SocketProvider>
         </AuthProvider>
       </body>

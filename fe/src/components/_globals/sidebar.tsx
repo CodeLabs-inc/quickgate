@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from 'react'
 import styles from './globals.module.css'
 import Link from 'next/link'
-import { ArrowDownUp, Blocks, CarFront, CircleHelp, Fence, FolderKanban, Home, ListTodo, LogOut, PanelsTopLeft, Server, Settings, Settings2, Tags, Ticket, Tickets, Users, Users2, Users2Icon } from 'lucide-react'
+import { ArrowDownUp, Blocks, CarFront, CircleHelp, Fence, FolderKanban, Home, ListTodo, LogOut, PanelsTopLeft, Phone, Server, Settings, Settings2, Tags, Ticket, Tickets, Users, Users2, Users2Icon } from 'lucide-react'
 
 import { logout } from '@/services/api'
 import { on } from 'events'
@@ -256,6 +256,16 @@ function Sidebar() {
               text="Ajustes Equipo"
               isOpen={isSidepanelOpen}
               href="/dashboard/gates/settings/equipment"
+            />
+
+<ElementSidebar
+              currentPath={path}
+              icon={
+                <Phone width={20} />
+              }
+              text="Call"
+              isOpen={isSidepanelOpen}
+              href="/dashboard/support/call/"
             />
 
           </div>

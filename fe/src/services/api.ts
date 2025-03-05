@@ -627,3 +627,18 @@ export const getDevices = async () => {
     status: response.status
   };
 }
+
+
+
+/* Calls */
+export const getCallersList = async () => {
+  const response = await fetch(`${API_URL}/account/call/getcallers`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getToken()}`,
+    },
+  });
+
+  return await response.json()
+}

@@ -95,6 +95,8 @@ export default function SettingsEquipmentGate() {
       return
     }
 
+    console.log(call.data)
+
     if (call.status == 201){
       return 
     }
@@ -118,6 +120,7 @@ export default function SettingsEquipmentGate() {
 
 
   useEffect(()=> {
+    console.log('ok')
     handleFetchDevices()
   }, [])
 

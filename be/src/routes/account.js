@@ -13,6 +13,7 @@ const {
   sendAdminAccountCreationEmail,
 } = require("../utils/mail");
 const { uploadFileToS3 } = require("../utils/uploadFileToS3");
+const { getCallerList } = require("../sockets/calls");
 
 router.route("/").get((req, res) => {
   res.send("Account route Online");
@@ -678,5 +679,19 @@ router.route("/admin/update/:userId").put(async (req, res) => {
     .status(200)
     .json({ success: true, message: "Account created successfully" });
 });
+
+
+/* Calls */
+router.route("/call/getcallers").get(async (req, res) => {
+
+
+  const list = await getCallerList()
+
+  return res.status(200).json({
+    success: true,
+    message: "callers found",
+    data: list
+  })
+})
 
 module.exports = router;

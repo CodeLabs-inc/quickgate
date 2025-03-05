@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 
 interface InputAnimatedProps {
   onSend: (text: string) => void
+  style?: any
 }
 
-export default function InputAnimated({onSend}: InputAnimatedProps) {
+export default function InputAnimated({onSend, style}: InputAnimatedProps) {
   const [prompt, setPrompt] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -23,34 +24,34 @@ export default function InputAnimated({onSend}: InputAnimatedProps) {
   }
 
   return (
-    <div className="relative mx-auto h-[180px] flex items-end justify-center" style={{width: '100%'}}>
+    <div className="relative mx-auto h-[180px] flex items-end justify-center" style={{width: '100%', ...style}}>
 
 
       {/* Animated background balls */}
       <div className="absolute inset-0 overflow-hidden">
         <div
-          className="absolute w-[80%] h-[20px] rounded-full bg-purple-500/50 blur-2xl animate-float"
+          className="absolute w-[50%] h-[20px] rounded-full bg-purple-500/50 blur-2xl animate-float"
           style={{
             top: "calc(80% - 25px)",
-            left: "calc(50% - 40%)",
+            left: "calc(50% - 25%)",
             animationDelay: "0s",
             animationDuration: "5s",
           }}
         />
         <div
-          className="absolute w-[80%] h-[40px] rounded-full bg-blue-500/50 blur-2xl animate-float-delayed"
+          className="absolute w-[50%] h-[40px] rounded-full bg-blue-500/50 blur-2xl animate-float-delayed"
           style={{
             top: "calc(80% - 45px)",
-            left: "calc(50% - 40%)",
+            left: "calc(50% - 25%)",
             animationDelay: "2s",
             animationDuration: "3s",
           }}
         />
         <div
-          className="absolute w-[80%] h-[20px] rounded-full bg-pink-500/50 blur-2xl animate-float-reverse"
+          className="absolute w-[50%] h-[20px] rounded-full bg-pink-500/50 blur-2xl animate-float-reverse"
           style={{
             top: "calc(80% - 25px)",
-            left: "calc(50% - 40%)",
+            left: "calc(50% - 25%)",
             animationDelay: "1s",
             animationDuration: "4s",
           }}
@@ -72,7 +73,7 @@ export default function InputAnimated({onSend}: InputAnimatedProps) {
 
 
       {/* Chat input bar */}
-      <form onSubmit={handleSubmit} className="relative w-3/4 mb-10 z-10">
+      <form onSubmit={handleSubmit} className="relative w-2/4 mb-10 z-10">
         <div className="relative flex items-center">
           <input
             type="text"
@@ -89,7 +90,7 @@ export default function InputAnimated({onSend}: InputAnimatedProps) {
           <Button
             type="submit"
             size="icon"
-            className="absolute right-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full w-10 h-10 flex items-center justify-center cursor-pointer"
+            className="absolute right-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full w-10 h-10 flex items-center justify-center cursor-pointer"
             disabled={!prompt.trim()}
             
           >

@@ -7,48 +7,40 @@ import { useSearchParams } from 'next/navigation'
 import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 
 
-export default function Main() {
-    return (
-      <Suspense fallback={<LoaderWhite/>}>
-        <SupportPage/>
-      </Suspense>
-    )
-  }
 
-function SupportPage() {
+export default function SupportPage() {
     const scrollableRef = useRef<any>(null)
-    const { sendMessageOperator, sendMessageAdmin, messages } = useContext(SocketContext)
+    const { messages } = useContext(SocketContext)
     const { role } = useContext(AuthContext)
     const searchParams = useSearchParams()
-
-
     const gateId = searchParams.get('gateId')
 
 
+    // Scroll to bottom with animation when messages change
+    useEffect(() => {
+        if (scrollableRef.current) {
+            const element = scrollableRef.current;
+            const targetScrollTop = element.scrollHeight;
 
-    const handleSendMessage = (message: string) => {
-        if (role === 'operator') {
-            sendMessageOperator(message)
-        } else {
-            if (!gateId) return
-            sendMessageAdmin(message, gateId)
+            // Smooth scroll to the bottom
+            element.scrollTo({
+                top: targetScrollTop,
+                behavior: 'smooth',  // Enables smooth scrolling
+            });
         }
-
-    }
-
+    }, [messages]);
 
 
 
     return (
-        <div className='w-full'
-            style={{
-                height: '100%',
-                position: 'relative'
-            }}
-        >
+        <>
             <section
                 ref={scrollableRef}
                 style={{
+                    padding: '0 20px',
+                    paddingTop: '91px',
+                    paddingBottom: '150px',
+                    overflowY: 'auto'
                 }}
             >
                 {
@@ -77,16 +69,29 @@ function SupportPage() {
                                         {/* Message bubble */}
                                         <div
                                             style={{
-                                                padding: "20px",
+                                                padding: "10px",
                                                 background: 'var(--steam-color)',
                                                 borderRadius: role === message.role ? '20px 20px 0 20px' : '20px 20px 20px 0px',
                                                 width: '100%',
                                                 maxWidth: '300px',
                                                 marginBottom: '10px',
-
+                                                fontSize: '14px'
                                             }}
                                         >
-                                            {message.content}
+                                            <p>
+                                                {message.content}
+                                            </p>
+                                            <div className='w-full flex  justify-end text-[11px] text-[#ffffff80]'>
+                                                <p>
+                                                    {
+                                                        new Date(message.date).toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: 'numeric',
+
+                                                        })
+                                                    }
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 )
@@ -124,13 +129,9 @@ function SupportPage() {
 
 
 
-            <InputAnimated
-                onSend={(text) => {
-                    handleSendMessage(text)
-                }}
-            />
+        </>
 
-        </div>
+
     )
 }
 

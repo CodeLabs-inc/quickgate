@@ -1,9 +1,9 @@
-const { Chat } = require("../database/schemas");
+const { Chat, Account } = require("../database/schemas");
 const { AuthenticateTokenSockets } = require("../utils/jwt");
 
 let CONNECTED_USERS = [];
 
-module.exports = (io) => {
+module.exports.socketHandler = (io) => {
   io.on("connection", async (socket) => {
     //Extract User references
     const userToken = socket.handshake.query.userId;
@@ -16,8 +16,12 @@ module.exports = (io) => {
 
     addUserToSocketList(socketId, userToken, auth);
 
+    //Messages
     sendMessageOperator(socket, io, userToken);
     sendMessageAdmin(socket, io, userToken);
+
+    //Calls
+    callJoin(socket, io, userToken);
 
     socket.on("disconnect", () => {
       removeUserFromSocketList(socket.id);
@@ -49,11 +53,11 @@ const sendMessageOperator = (socket, io, userToken) => {
     getAllAdmins().forEach((admin) => {
       io.to(admin.socketId).emit("receive-message-operator", {
         gateId,
-        type: 'text',
+        type: "text",
         role: "operator",
         content: message,
         date: new Date(),
-        gateId: gateId
+        gateId: gateId,
       });
     });
   });
@@ -81,7 +85,7 @@ const sendMessageAdmin = (socket, io, userToken) => {
     getAllUsersFromGate(gateId).forEach((gater) => {
       io.to(gater.socketId).emit("receive-message-admin", {
         gateId,
-        type: 'text',
+        type: "text",
         role: "admin",
         content: message,
         date: new Date(),
@@ -95,7 +99,7 @@ const completedTrack = (socket, data) => {
 };
 
 /* Sockets Controllers */
-const addUserToSocketList = (socketId, userToken, auth) => {
+const addUserToSocketList = (socketId, userToken, auth, peerId, room) => {
   const userObject = {
     socketId: socketId,
     token: userToken,
@@ -104,10 +108,11 @@ const addUserToSocketList = (socketId, userToken, auth) => {
       _id: auth.account._id,
     },
     role: auth.account.user.type,
+    room: room ?? null,
+    peerId: peerId,
   };
 
   CONNECTED_USERS.push(userObject);
-  
 };
 const removeUserFromSocketList = (socketId) => {
   CONNECTED_USERS = CONNECTED_USERS.filter(
@@ -123,11 +128,10 @@ const getAllAdmins = () => {
 };
 const getAllUsersFromGate = (gateId) => {
   const gatersList = CONNECTED_USERS.filter((user) => {
-    if (!user.account.gateId) return 
-    const currentGateId = user.account.gateId.toString()
-    return currentGateId === gateId
+    if (!user.account.gateId) return;
+    const currentGateId = user.account.gateId.toString();
+    return currentGateId === gateId;
   });
-
 
   return gatersList;
 };
@@ -161,3 +165,64 @@ const registerMessageInDatabase = async (message, gateId, role) => {
     return !!updatedChat;
   }
 };
+
+/* Calls controllers */
+const callJoin = (socket, io, userToken) => {
+  socket.on("call-joined", async (data) => {
+    const auth = await AuthenticateTokenSockets(userToken);
+
+    if (!auth.success) {
+      // THROW ERROR AUTH
+      return console.log("Not authorized");
+    }
+
+    if (auth.account.user.type === "operator" && !auth.account.gateId) {
+      //THROW ERROR NO GATE ASSOCIATED SO CANNOT TALK FOR ONE
+      return console.log("Operator not associated to a gate");
+    }
+
+    const { peerId } = data;
+    const { id } = socket;
+
+    //add peerId to socket
+    const userIndex = CONNECTED_USERS.findIndex((user) => user.socketId === id);
+
+    if (userIndex === -1) {
+      // If no user is found, handle the error
+      return console.log("User not found in CONNECTED_USERS");
+    }
+
+    // Update the peerId for the found user
+    CONNECTED_USERS[userIndex].peerId = peerId;
+  });
+};
+const getCallerList = async () => {
+  // Filter users who have a peerId
+  const callableUsers = CONNECTED_USERS.filter((user) => user.peerId);
+
+  // Use Promise.all to handle multiple asynchronous calls
+  const searchUsers = await Promise.all(callableUsers.map(async (user) => {
+    // Fetch the account details by user ID
+    const userAccount = await Account.findById(user.account._id).select('user');
+    
+    // Return the account data along with the peerId
+    return {
+      user: userAccount,
+      peerId: user.peerId,
+    };
+  }));
+
+  return searchUsers;
+};
+
+
+
+setInterval(()=>{
+  //console.log(CONNECTED_USERS)
+},1000)
+
+
+module.exports.getCallerList = getCallerList;
+
+
+

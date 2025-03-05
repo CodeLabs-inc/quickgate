@@ -7,11 +7,11 @@ import { AuthContext } from '../_context/AuthContext'
 interface Props {
     children: React.ReactNode
     sidebarHidden?: boolean
-    notScrollable?: boolean
+    style?: any
 }
 
 
-function Page({ children, sidebarHidden, notScrollable }: Props) {
+function Page({ children, sidebarHidden,  style }: Props) {
     
 
     return (
@@ -23,7 +23,7 @@ function Page({ children, sidebarHidden, notScrollable }: Props) {
             <div className={styles.containerPage} style={{paddingRight: '15px', paddingBottom: '15px', paddingLeft: '0px'}}>
                 <div className={styles.cardPage} 
                 style={{
-                    overflowY: notScrollable ? 'hidden' : 'auto'
+                    ...style
                 }}>
                     {children}
                 </div>
