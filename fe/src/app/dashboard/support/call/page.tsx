@@ -44,6 +44,7 @@ function Main() {
             callers.map((caller: any) => {
               return (
                 <div 
+                  key={caller.peerId}
                   style={{
                     width: '100%',
                     background: '#ffffff20'
