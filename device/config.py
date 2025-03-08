@@ -1,21 +1,40 @@
+import cv2
+
 # Configuración de cámaras
-CAMERA_ENTRADA = {
-    'tipo': 'USB',  # Puede ser 'USB' o 'IP'
-    'source': 0,    # Número de dispositivo USB o URL de la cámara IP
-    'nombre': 'entrada'
+# Configuración común para ambas cámaras
+CAMARA_CONFIG_BASE = {
+    'tipo': 'USB',
+    'fps': 30,             # FPS estándar
+    'max_intentos': 3,     # Más intentos para asegurar la conexión
+    'tiempo_espera': 1,    # Espera entre intentos
+    'timeout': 5,          # Timeout para inicialización
+    'resolucion': {
+        'width': 640,      # Resolución confirmada por prueba
+        'height': 480
+    },
+    'parametros': {
+        'backend': cv2.CAP_DSHOW  # Usar DirectShow en Windows
+    }
 }
 
-CAMERA_SALIDA = {
-    'tipo': 'USB',  # Puede ser 'USB' o 'IP'
-    'source': 1,    # Número de dispositivo USB o URL de la cámara IP
-    'nombre': 'salida'
-}
+# Configuración específica para cámara de entrada
+CAMERA_ENTRADA = CAMARA_CONFIG_BASE.copy()
+CAMERA_ENTRADA.update({
+    'source': 0,           # Cámara USB en índice 0
+    'nombre': 'entrada',
+    'resolucion': {
+        'width': 640,      # Resolución confirmada
+        'height': 480
+    }
+})
+
+# Configuración específica para cámara de salida - DESHABILITADA
+CAMERA_SALIDA = None  # Solo tenemos una cámara disponible por ahora
 
 # Configuración del API
 API_CONFIG = {
-    'url': 'http://tu-api-url.com/registro',  # URL del API que procesará las placas
+    'url': 'http://localhost:5000/registro',  # URL local para pruebas
     'headers': {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer tu-token-aqui'  # Si es necesario
+        'Content-Type': 'application/json'
     }
 }

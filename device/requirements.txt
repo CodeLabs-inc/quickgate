@@ -1,5 +1,8 @@
-opencv-python
-numpy
-imutils
-easyocr
-requests
+opencv-python>=4.9.0.80
+numpy>=1.26.0
+imutils>=0.5.4
+easyocr>=1.7.1
+torch>=2.2.0
+torchvision>=0.17.0
+Pillow>=10.2.0
+requests>=2.31.0
