@@ -62,280 +62,276 @@ LETRAS_VALIDAS = {
     'X': 'Vehículos de uso temporal'
 }
 
-def es_placa_dominicana(texto):
-    # Limpiar y normalizar el texto
-    texto = texto.replace('O', '0')  # Reemplazar O por 0, error común de OCR
-    texto = texto.replace('I', '1')  # Reemplazar I por 1, error común de OCR
-    texto = texto.replace('S', '5')  # Reemplazar S por 5, error común de OCR
-    texto = texto.replace('B', '8')  # Reemplazar B por 8, error común de OCR
-    
-    texto_limpio = ''.join(c for c in texto if c.isalnum()).upper()
-    
-    # Si el texto es muy corto, no puede ser una placa
-    if len(texto_limpio) < 7:
-        return None
-    
-    print(f"Texto detectado: {texto_limpio}")
-    
-    # Buscar una letra válida al inicio o cerca del inicio
-    for i in range(min(3, len(texto_limpio))):
-        letra = texto_limpio[i]
-        if letra in LETRAS_VALIDAS:
-            # Buscar 6 dígitos después de la letra
-            resto = texto_limpio[i+1:]
-            numeros = ''.join(c for c in resto if c.isdigit())
-            if len(numeros) >= 6:
-                placa = f"{letra}{numeros[:6]}"
-                print(f"Placa válida encontrada ({LETRAS_VALIDAS[letra]}): {placa}")
-                return placa
-    
-    # Si no encontramos una letra válida al inicio, buscar en todo el texto
-    for i in range(len(texto_limpio)):
-        letra = texto_limpio[i]
-        if letra in LETRAS_VALIDAS:
-            # Verificar si hay suficientes dígitos después de la letra
-            resto = texto_limpio[i+1:]
-            numeros = ''.join(c for c in resto if c.isdigit())
-            if len(numeros) >= 6:
-                placa = f"{letra}{numeros[:6]}"
-                print(f"Placa válida encontrada ({LETRAS_VALIDAS[letra]}): {placa}")
-                return placa
-    
-    return None
-
 class DetectorPlacas:
     def __init__(self, nombre=""):
         print(f"Inicializando detector de placas para {nombre}...")
         self.nombre = nombre
-        # Configurar EasyOCR optimizado para CPU
+        
+        # Configurar EasyOCR optimizado para CPU/GPU
         self.reader = easyocr.Reader(
             ['es'],  # Solo español para mayor velocidad
-            gpu=False,  # Usar CPU
+            gpu=torch.cuda.is_available(),  # Usar GPU si está disponible
             model_storage_directory=os.path.join(os.path.dirname(__file__), 'models'),
             download_enabled=True,
-            detector=True,  # Usar detector de texto para mejor precisión
-            recognizer=True,  # Usar reconocedor de texto
-            quantize=True,  # Cuantizar modelo para CPU
-            cudnn_benchmark=False  # Desactivar optimizaciones CUDA
+            detector=True,
+            recognizer=True,
+            quantize=not torch.cuda.is_available(),  # Cuantizar solo si usamos CPU
+            cudnn_benchmark=torch.cuda.is_available()  # Optimizaciones CUDA si está disponible
         )
+        
+        # Configuración para procesamiento de video
+        self.frame_buffer = []  # Buffer para frames
+        self.buffer_size = 3    # Tamaño del buffer para promediar detecciones
+        self.skip_frames = 2    # Frames a saltar para optimizar rendimiento
+        self.frame_count = 0    # Contador de frames
+        self.fps_start_time = time.time()  # Para cálculo de FPS
+        self.fps_counter = 0    # Contador para FPS
+        self.current_fps = 0    # FPS actual
+        
+        # Cliente API y configuración de detecciones
         self.api_client = APIClient(API_CONFIG)
         self.ultima_deteccion = {}
-        self.tiempo_minimo_entre_detecciones = 2  # Reducido a 2 segundos
+        self.tiempo_minimo_entre_detecciones = 2  # Segundos entre detecciones
         self.placa_detectada = False
-        self.detecciones_totales = 0  # Contador de detecciones
-        # Configurar parámetros de detección
-        self.min_confidence = 0.3  # Reducido para detectar más placas
+        self.detecciones_totales = 0
+        self.min_confidence = 0.3
         
+        # Cache de resultados para evitar procesamiento redundante
+        self.cache_resultados = {}
+        self.cache_timeout = 1.0  # Tiempo de vida del cache en segundos
+        
+    def actualizar_fps(self):
+        """Actualiza el contador de FPS"""
+        self.fps_counter += 1
+        tiempo_actual = time.time()
+        if tiempo_actual - self.fps_start_time > 1.0:
+            self.current_fps = self.fps_counter
+            self.fps_counter = 0
+            self.fps_start_time = tiempo_actual
+            print(f"FPS: {self.current_fps}")
+    
     def procesar_frame(self, frame, timestamp):
         if frame is None:
             return frame
-
+            
+        # Actualizar FPS
+        self.actualizar_fps()
+        
+        # Incrementar contador de frames
+        self.frame_count += 1
+        
+        # Saltar frames para optimizar rendimiento
+        if self.frame_count % self.skip_frames != 0:
+            return frame
+            
+        # Verificar cache
+        frame_hash = hash(frame.tobytes())
+        if frame_hash in self.cache_resultados:
+            cache_time, resultado = self.cache_resultados[frame_hash]
+            if time.time() - cache_time < self.cache_timeout:
+                return resultado
+        
         # Obtener dimensiones del frame
         height, width = frame.shape[:2]
         
         # Redimensionar para procesamiento más rápido
-        scale = 800 / width  # Aumentado para mejor detección
+        scale = 800 / width
         frame_resized = cv2.resize(frame, (800, int(height * scale)))
         
-        # Convertir a escala de grises
+        # Convertir a escala de grises y optimizar
         gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
-        
-        # Normalizar la iluminación
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))  # Aumentado para mejor contraste
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
         gray = clahe.apply(gray)
+        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=30)
         
-        # Mejorar el contraste
-        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=30)  # Aumentado para mejor contraste
-        
-        # Suavizado bilateral para reducir ruido manteniendo bordes
-        blurred = cv2.bilateralFilter(gray, 9, 75, 75)  # Ajustado para mejor detección de bordes
-        
-        # Detectar bordes con Canny
-        edged = cv2.Canny(blurred, 50, 150)  # Ajustado para mejor detección de bordes
-        
-        # Dilatación para conectar bordes
+        # Procesamiento optimizado para video
+        blurred = cv2.bilateralFilter(gray, 9, 75, 75)
+        edged = cv2.Canny(blurred, 50, 150)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-        edged = cv2.dilate(edged, kernel, iterations=2)  # Más iteraciones
+        edged = cv2.dilate(edged, kernel, iterations=2)
         
-        # Encontrar contornos
-        keypoints = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  # Cambiado a TREE
+        # Encontrar y procesar contornos
+        keypoints = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = imutils.grab_contours(keypoints)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:8]  # Aumentado a 8
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:8]
         
         mejor_deteccion = None
         mejor_confianza = 0
         
+        # Procesar cada contorno
         for contour in contours:
-            # Usar menor epsilon para aproximación más precisa
             epsilon = 0.02 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True)
             
-            # Aceptar formas con 4-6 vértices (más permisivo)
             if 4 <= len(approx) <= 6:
-                # Obtener rectángulo delimitador directamente
                 x, y, w, h = cv2.boundingRect(contour)
                 
-                # Obtener ancho y alto del rectángulo rotado
-                width = w
-                height = h
-                if width < height:
-                    width, height = height, width
-                
-                # Verificar tamaño mínimo y máximo
-                min_width = 60    # Reducido para detectar placas más lejanas
-                max_width = 500   # Aumentado para placas muy cercanas
-                min_height = 20   # Reducido proporcionalmente
-                max_height = 150  # Aumentado proporcionalmente
-                
-                if width < min_width or height < min_height or width > max_width or height > max_height:
+                # Verificar dimensiones
+                if not self._validar_dimensiones(w, h):
                     continue
-                
-                # Verificar proporciones típicas de una placa dominicana (ancho:alto ~ 3:1)
-                aspect_ratio = width/height
-                if not (2.0 <= aspect_ratio <= 4.5):  # Más permisivo con la proporción
-                    continue
-                
-                # Ajustar coordenadas al tamaño original
-                x1 = int(x / scale)
-                y1 = int(y / scale)
-                x2 = int((x + w) / scale)
-                y2 = int((y + h) / scale)
-                
-                # Añadir padding para incluir más contexto
-                padding_x = int(w * 0.15)  # Aumentado
-                padding_y = int(h * 0.25)  # Aumentado
-                x1 = max(0, x1 - padding_x)
-                y1 = max(0, y1 - padding_y)
-                x2 = min(frame.shape[1], x2 + padding_x)
-                y2 = min(frame.shape[0], y2 + padding_y)
-                
-                # Extraer la región de la placa del frame original
-                cropped_image = frame[y1:y2, x1:x2]
-                
-                if cropped_image.size == 0 or cropped_image.shape[0] < 15 or cropped_image.shape[1] < 30:
-                    continue
-                
-                # Preprocesamiento para mejorar el OCR
-                # Redimensionar manteniendo la proporción
-                target_width = 400  # Aumentado para mejor detección
-                scale = target_width / cropped_image.shape[1]
-                target_height = int(cropped_image.shape[0] * scale)
-                resized = cv2.resize(cropped_image, (target_width, target_height))
-                
-                # Lista para almacenar imágenes procesadas
-                processed_images = []
-                
-                # 1. Imagen en escala de grises normal
-                gray_plate = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-                processed_images.append(gray_plate)
-                
-                # 2. Imagen con alto contraste
-                contrast = cv2.convertScaleAbs(gray_plate, alpha=2.0, beta=0)
-                processed_images.append(contrast)
-                
-                # 3. Imagen ecualizada
-                equ = cv2.equalizeHist(gray_plate)
-                processed_images.append(equ)
-                
-                # 4. Imagen binarizada
-                _, binary = cv2.threshold(gray_plate, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                processed_images.append(binary)
-                
-                # Procesar cada variante de la imagen
-                for img in processed_images:
-                    # Detectar texto con parámetros optimizados
-                    result = self.reader.readtext(
-                        img,
-                        allowlist=''.join(LETRAS_VALIDAS.keys()) + '0123456789',
-                        batch_size=1,
-                        detail=0,
-                        paragraph=False,
-                        height_ths=0.3,      # Más permisivo
-                        width_ths=0.3,       # Más permisivo
-                        contrast_ths=0.1,    # Más permisivo
-                        low_text=0.2,        # Más permisivo
-                        text_threshold=0.4,  # Más permisivo
-                        link_threshold=0.2,  # Más permisivo
-                        mag_ratio=1.5,
-                        slope_ths=0.2        # Más permisivo
-                    )
                     
-                    # Procesar cada detección
-                    for text in result:
-                        # Limpiar y normalizar el texto
-                        text = text.replace('O', '0').replace('I', '1').replace('S', '5').replace('B', '8')
-                        text = text.replace('o', '0').replace('i', '1').replace('s', '5').replace('b', '8')
-                        text = text.replace('D', '0').replace('l', '1').replace('Z', '2')
-                        text = ''.join(c for c in text if c.isalnum()).upper()
-                        
-                        # Verificar longitud mínima
-                        if len(text) < 6:  # Más permisivo
-                            continue
-                        
-                        # Verificar si el texto comienza con una letra válida
-                        letra = text[0]
-                        if letra in LETRAS_VALIDAS:
-                            # Buscar una secuencia de dígitos
-                            numeros = ''.join(c for c in text[1:] if c.isdigit())
-                            if len(numeros) >= 5:  # Más permisivo
-                                placa_candidata = letra + numeros[:6]
-                                
-                                # Calcular confianza
-                                confidence = 0.4  # Base más permisiva
-                                if len(text) == 7:
-                                    confidence += 0.3
-                                if text[0] in ['G', 'A', 'L', 'O', 'P', 'E', 'I']:
-                                    confidence += 0.2
-                                if text[1:].isdigit():
-                                    confidence += 0.2
-                                if all(c in '0123456789' for c in text[1:]):
-                                    confidence += 0.1
-                                
-                                # Penalizaciones reducidas
-                                if any(c in 'B8' for c in text[1:]):
-                                    confidence -= 0.05
-                                if any(c in 'O0' for c in text[1:]):
-                                    confidence -= 0.05
-                                if any(c in 'I1' for c in text[1:]):
-                                    confidence -= 0.05
-                                if any(c in 'S5' for c in text[1:]):
-                                    confidence -= 0.05
-                                
-                                if confidence > mejor_confianza:
-                                    mejor_deteccion = placa_candidata
-                                    mejor_confianza = confidence
-                                    print(f"\n¡Nueva detección en {self.nombre}! (#{self.detecciones_totales})")
-                                    print(f"Tipo: {LETRAS_VALIDAS[letra]}")
-                                    print(f"Placa: {placa_candidata}")
-                                    print(f"Confianza: {confidence:.2f}\n")
-                
-                # Si encontramos una detección válida
-                if mejor_deteccion:
-                    # Dibujar rectángulo y texto en el frame
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame, mejor_deteccion, (x1, y1-10), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                # Extraer y procesar región de interés
+                roi = self._extraer_roi(frame, x, y, w, h, scale)
+                if roi is None:
+                    continue
                     
-                    # Verificar tiempo desde última detección
-                    tiempo_actual = time.time()
-                    ultima_deteccion = self.ultima_deteccion.get(mejor_deteccion, 0)
-                    if tiempo_actual - ultima_deteccion > self.tiempo_minimo_entre_detecciones:
-                        self.ultima_deteccion[mejor_deteccion] = tiempo_actual
-                        self.detecciones_totales += 1
-                        
-                        # Enviar detección al API
-                        try:
-                            self.api_client.enviar_deteccion({
-                                'placa': mejor_deteccion,
-                                'tipo': LETRAS_VALIDAS[mejor_deteccion[0]],
-                                'camara': self.nombre,
-                                'confianza': mejor_confianza,
-                                'timestamp': timestamp
-                            })
-                        except Exception as e:
-                            print(f"Error al enviar detección al API: {str(e)}")
+                # Detectar texto en ROI
+                resultado = self._detectar_texto(roi)
+                if resultado:
+                    mejor_deteccion, mejor_confianza = resultado
+                    
+        # Actualizar frame con resultados
+        if mejor_deteccion:
+            frame = self._dibujar_resultados(frame, x, y, w, h, mejor_deteccion)
+            
+            # Actualizar cache
+            self.cache_resultados[frame_hash] = (time.time(), frame)
+            
+            # Procesar detección
+            self._procesar_deteccion(mejor_deteccion, mejor_confianza, timestamp)
         
         return frame
+        
+    def _validar_dimensiones(self, w, h):
+        """Valida las dimensiones de un posible plate"""
+        min_width, max_width = 60, 500
+        min_height, max_height = 20, 150
+        aspect_ratio = w/h
+        
+        return (min_width <= w <= max_width and 
+                min_height <= h <= max_height and 
+                2.0 <= aspect_ratio <= 4.5)
+                
+    def _extraer_roi(self, frame, x, y, w, h, scale):
+        """Extrae y preprocesa la región de interés"""
+        x1 = max(0, int(x/scale))
+        y1 = max(0, int(y/scale))
+        x2 = min(frame.shape[1], int((x + w)/scale))
+        y2 = min(frame.shape[0], int((y + h)/scale))
+        
+        roi = frame[y1:y2, x1:x2]
+        if roi.size == 0 or roi.shape[0] < 15 or roi.shape[1] < 30:
+            return None
+            
+        return cv2.resize(roi, (400, int(roi.shape[0] * 400/roi.shape[1])))
+        
+    def _detectar_texto(self, roi):
+        """Detecta texto en la región de interés"""
+        for img in self._generar_variantes(roi):
+            result = self.reader.readtext(
+                img,
+                allowlist=''.join(LETRAS_VALIDAS.keys()) + '0123456789',
+                batch_size=1,
+                detail=0,
+                paragraph=False,
+                height_ths=0.3,
+                width_ths=0.3,
+                contrast_ths=0.1,
+                low_text=0.2,
+                text_threshold=0.4,
+                link_threshold=0.2,
+                mag_ratio=1.5,
+                slope_ths=0.2
+            )
+            
+            for text in result:
+                placa, confianza = self._analizar_texto(text)
+                if placa and confianza > self.min_confidence:
+                    return placa, confianza
+        return None
+        
+    def _generar_variantes(self, img):
+        """Genera variantes de la imagen para mejor detección"""
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return [
+            gray,
+            cv2.convertScaleAbs(gray, alpha=2.0, beta=0),
+            cv2.equalizeHist(gray),
+            cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        ]
+        
+    def _analizar_texto(self, text):
+        """Analiza el texto detectado para validar si es una placa"""
+        text = self._normalizar_texto(text)
+        if len(text) < 6:
+            return None, 0
+            
+        if text[0] not in LETRAS_VALIDAS:
+            return None, 0
+            
+        numeros = ''.join(c for c in text[1:] if c.isdigit())
+        if len(numeros) < 5:
+            return None, 0
+            
+        placa = text[0] + numeros[:6]
+        confianza = self._calcular_confianza(text, placa)
+        return placa, confianza
+        
+    def _normalizar_texto(self, text):
+        """Normaliza el texto detectado"""
+        replacements = {
+            'O': '0', 'I': '1', 'S': '5', 'B': '8',
+            'o': '0', 'i': '1', 's': '5', 'b': '8',
+            'D': '0', 'l': '1', 'Z': '2'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return ''.join(c for c in text if c.isalnum()).upper()
+        
+    def _calcular_confianza(self, text, placa):
+        """Calcula la confianza de la detección"""
+        confianza = 0.4
+        if len(text) == 7:
+            confianza += 0.3
+        if text[0] in ['G', 'A', 'L', 'O', 'P', 'E', 'I']:
+            confianza += 0.2
+        if text[1:].isdigit():
+            confianza += 0.2
+        if all(c in '0123456789' for c in text[1:]):
+            confianza += 0.1
+            
+        # Penalizaciones
+        penalizaciones = {
+            'B8': 0.05, 'O0': 0.05,
+            'I1': 0.05, 'S5': 0.05
+        }
+        for chars, penalty in penalizaciones.items():
+            if any(c in chars for c in text[1:]):
+                confianza -= penalty
+                
+        return confianza
+        
+    def _dibujar_resultados(self, frame, x, y, w, h, deteccion):
+        """Dibuja los resultados en el frame"""
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.putText(frame, deteccion, (x, y-10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        return frame
+        
+    def _procesar_deteccion(self, deteccion, confianza, timestamp):
+        """Procesa una nueva detección"""
+        tiempo_actual = time.time()
+        ultima_deteccion = self.ultima_deteccion.get(deteccion, 0)
+        
+        if tiempo_actual - ultima_deteccion > self.tiempo_minimo_entre_detecciones:
+            self.ultima_deteccion[deteccion] = tiempo_actual
+            self.detecciones_totales += 1
+            
+            print(f"\n¡Nueva detección en {self.nombre}! (#{self.detecciones_totales})")
+            print(f"Tipo: {LETRAS_VALIDAS[deteccion[0]]}")
+            print(f"Placa: {deteccion}")
+            print(f"Confianza: {confianza:.2f}\n")
+            
+            try:
+                self.api_client.enviar_deteccion({
+                    'placa': deteccion,
+                    'tipo': LETRAS_VALIDAS[deteccion[0]],
+                    'camara': self.nombre,
+                    'confianza': confianza,
+                    'timestamp': timestamp
+                })
+            except Exception as e:
+                print(f"Error al enviar detección al API: {str(e)}")
 
 def main():
     print("Iniciando sistema de detección de placas...")
