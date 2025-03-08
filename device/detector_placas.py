@@ -124,6 +124,28 @@ class DetectorPlacas:
         if self.frame_count % self.skip_frames != 0:
             return frame
             
+        # Agregar frame al buffer
+        self.frame_buffer.append(frame)
+        if len(self.frame_buffer) > self.buffer_size:
+            self.frame_buffer.pop(0)
+            
+        # Si no tenemos suficientes frames en el buffer, procesar frame actual
+        if len(self.frame_buffer) < self.buffer_size:
+            return self._procesar_frame_individual(frame, timestamp)
+            
+        # Procesar frames del buffer
+        frame_promedio = None
+        for f in self.frame_buffer:
+            if frame_promedio is None:
+                frame_promedio = f.astype(float)
+            else:
+                frame_promedio += f.astype(float)
+        
+        frame_promedio = (frame_promedio / len(self.frame_buffer)).astype(np.uint8)
+        return self._procesar_frame_individual(frame_promedio, timestamp)
+        
+    def _procesar_frame_individual(self, frame, timestamp):
+        """Procesa un frame individual"""
         # Verificar cache
         frame_hash = hash(frame.tobytes())
         if frame_hash in self.cache_resultados:
