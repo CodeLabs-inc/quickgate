@@ -1,413 +1,251 @@
-import sys
-import os
-import re
-from datetime import datetime
-import time
-
-def verificar_dependencias():
-    dependencias = {
-        'cv2': 'opencv-python',
-        'numpy': 'numpy',
-        'imutils': 'imutils',
-        'easyocr': 'easyocr',
-        'torch': 'torch',
-        'torchvision': 'torchvision',
-        'PIL': 'Pillow'
-    }
-    
-    faltantes = []
-    for modulo, paquete in dependencias.items():
-        try:
-            __import__(modulo)
-        except ImportError:
-            faltantes.append(paquete)
-    
-    if faltantes:
-        print("Error: Faltan las siguientes dependencias:")
-        for paquete in faltantes:
-            print(f"  - {paquete}")
-        print("\nPor favor, instale las dependencias usando:")
-        print(f"pip install {' '.join(faltantes)}")
-        sys.exit(1)
-
-# Verificar dependencias antes de importar
-verificar_dependencias()
-
-# Importar dependencias
 import cv2
-import numpy as np
-import imutils
-import easyocr
-import torch
-import torchvision
-from PIL import Image
+import time
+from datetime import datetime
+import logging
+import json
+import requests
+import sys
+import tkinter as tk
+from tkinter import ttk
+import hashlib
+from config import CAMERA_ENTRADA, API_CONFIG, DEVICE_CONFIG
 
-# Configurar PyTorch para usar CPU y optimizar rendimiento
-torch.set_num_threads(2)  # Limitar threads para evitar sobrecarga
-torch.set_grad_enabled(False)  # Desactivar gradientes ya que solo hacemos inferencia
+def hash_password(password):
+    """Hash the password using SHA256"""
+    sha256 = hashlib.sha256()
+    sha256.update(password.encode())
+    return sha256.hexdigest()
 
-from camera_manager import CameraManager
-from api_client import APIClient
-from config import CAMERA_ENTRADA, CAMERA_SALIDA, API_CONFIG
-
-# Letras válidas según la DGII
-LETRAS_VALIDAS = {
-    'A': 'Vehículos privados',
-    'E': 'Vehículos exentos',
-    'G': 'Vehículos gubernamentales',
-    'K': 'Motocicletas',
-    'L': 'Alquiler',
-    'O': 'Vehículos oficiales',
-    'P': 'Vehículos privados',
-    'X': 'Vehículos de uso temporal'
-}
-
-class DetectorPlacas:
-    def __init__(self, nombre=""):
-        print(f"Inicializando detector de placas para {nombre}...")
-        self.nombre = nombre
+class DetectorGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("QuickGate - Detector de Placas")
         
-        # Configurar EasyOCR optimizado para CPU/GPU
-        self.reader = easyocr.Reader(
-            ['es'],  # Solo español para mayor velocidad
-            gpu=torch.cuda.is_available(),  # Usar GPU si está disponible
-            model_storage_directory=os.path.join(os.path.dirname(__file__), 'models'),
-            download_enabled=True,
-            detector=True,
-            recognizer=True,
-            quantize=not torch.cuda.is_available(),  # Cuantizar solo si usamos CPU
-            cudnn_benchmark=torch.cuda.is_available()  # Optimizaciones CUDA si está disponible
-        )
+        # Configurar el frame principal
+        self.main_frame = ttk.Frame(self.root, padding="10")
+        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        # Configuración para procesamiento de video
-        self.frame_buffer = []  # Buffer para frames
-        self.buffer_size = 3    # Tamaño del buffer para promediar detecciones
-        self.skip_frames = 2    # Frames a saltar para optimizar rendimiento
-        self.frame_count = 0    # Contador de frames
-        self.fps_start_time = time.time()  # Para cálculo de FPS
-        self.fps_counter = 0    # Contador para FPS
-        self.current_fps = 0    # FPS actual
+        # Frame para información del equipo
+        self.device_frame = ttk.LabelFrame(self.main_frame, text="Información del Equipo", padding="5")
+        self.device_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
         
-        # Cliente API y configuración de detecciones
-        self.api_client = APIClient(API_CONFIG)
-        self.ultima_deteccion = {}
-        self.tiempo_minimo_entre_detecciones = 2  # Segundos entre detecciones
-        self.placa_detectada = False
-        self.detecciones_totales = 0
-        self.min_confidence = 0.3
+        # Obtener IP de Tailscale
+        import socket
+        hostname = socket.gethostname()
+        try:
+            ip_address = socket.gethostbyname(hostname)
+        except:
+            ip_address = "No disponible"
         
-        # Cache de resultados para evitar procesamiento redundante
-        self.cache_resultados = {}
-        self.cache_timeout = 1.0  # Tiempo de vida del cache en segundos
+        # Información del equipo
+        ttk.Label(self.device_frame, text=f"Nombre: {DEVICE_CONFIG['nombre']}").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(self.device_frame, text=f"IP: {ip_address}").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(self.device_frame, text=f"Cámaras activas: 2 (Entrada/Salida)").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
         
-    def actualizar_fps(self):
-        """Actualiza el contador de FPS"""
-        self.fps_counter += 1
-        tiempo_actual = time.time()
-        if tiempo_actual - self.fps_start_time > 1.0:
-            self.current_fps = self.fps_counter
-            self.fps_counter = 0
-            self.fps_start_time = tiempo_actual
-            print(f"FPS: {self.current_fps}")
+        # Frame para estadísticas
+        self.stats_frame = ttk.LabelFrame(self.main_frame, text="Estadísticas", padding="5")
+        self.stats_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        
+        # Contador de detecciones
+        self.detections_count = 0
+        self.detections_label = ttk.Label(self.stats_frame, text="Detecciones: 0")
+        self.detections_label.grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        
+        # Estado de la cámara
+        self.camera_status = ttk.Label(self.stats_frame, text="Estado: Conectado", foreground="green")
+        self.camera_status.grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        
+        # Frame para las cámaras
+        self.cameras_frame = ttk.Frame(self.main_frame)
+        self.cameras_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        
+        # Label para cámara de entrada
+        ttk.Label(self.cameras_frame, text="Cámara de Entrada").grid(row=0, column=0, pady=5)
+        self.entrada_label = ttk.Label(self.cameras_frame)
+        self.entrada_label.grid(row=1, column=0, padx=5)
+        
+        # Label para cámara de salida
+        ttk.Label(self.cameras_frame, text="Cámara de Salida").grid(row=0, column=1, pady=5)
+        self.salida_label = ttk.Label(self.cameras_frame)
+        self.salida_label.grid(row=1, column=1, padx=5)
+        
+        # Configurar expansión
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.rowconfigure(2, weight=1)
+        self.cameras_frame.columnconfigure(0, weight=1)
+        self.cameras_frame.columnconfigure(1, weight=1)
+        
+        # Inicializar cámaras
+        self.cap_entrada = cv2.VideoCapture(CAMERA_ENTRADA["id"])
+        self.cap_salida = cv2.VideoCapture(1)  # Asumimos que la cámara de salida es ID 1
+        
+        if not self.cap_entrada.isOpened():
+            self.camera_status.config(text="Estado: Error en cámara de entrada", foreground="red")
+        if not self.cap_salida.isOpened():
+            self.camera_status.config(text="Estado: Error en cámara de salida", foreground="red")
+        
+        # Iniciar actualización
+        self.update_cameras()
     
-    def procesar_frame(self, frame, timestamp):
-        if frame is None:
-            return frame
+    def update_cameras(self):
+        """Actualiza las imágenes de ambas cámaras"""
+        # Actualizar cámara de entrada
+        ret_entrada, frame_entrada = self.cap_entrada.read()
+        if ret_entrada:
+            frame_entrada = cv2.cvtColor(frame_entrada, cv2.COLOR_BGR2RGB)
+            frame_entrada = cv2.resize(frame_entrada, (400, 300))
             
-        # Actualizar FPS
-        self.actualizar_fps()
-        
-        # Incrementar contador de frames
-        self.frame_count += 1
-        
-        # Saltar frames para optimizar rendimiento
-        if self.frame_count % self.skip_frames != 0:
-            return frame
-            
-        # Agregar frame al buffer
-        self.frame_buffer.append(frame)
-        if len(self.frame_buffer) > self.buffer_size:
-            self.frame_buffer.pop(0)
-            
-        # Si no tenemos suficientes frames en el buffer, procesar frame actual
-        if len(self.frame_buffer) < self.buffer_size:
-            return self._procesar_frame_individual(frame, timestamp)
-            
-        # Procesar frames del buffer
-        frame_promedio = None
-        for f in self.frame_buffer:
-            if frame_promedio is None:
-                frame_promedio = f.astype(float)
+            # Simular detección cada 5 segundos
+            current_time = time.time()
+            if hasattr(self, 'last_detection_time'):
+                if current_time - self.last_detection_time >= 5:
+                    self.detections_count += 1
+                    self.detections_label.config(text=f"Detecciones: {self.detections_count}")
+                    # Dibujar rectángulo y texto en el frame
+                    cv2.rectangle(frame_entrada, (50, 50), (350, 250), (0, 255, 0), 2)
+                    plate_number = f"ABC{self.detections_count:03d}"
+                    cv2.putText(frame_entrada, plate_number, (50, 40), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    self.last_detection_time = current_time
             else:
-                frame_promedio += f.astype(float)
-        
-        frame_promedio = (frame_promedio / len(self.frame_buffer)).astype(np.uint8)
-        return self._procesar_frame_individual(frame_promedio, timestamp)
-        
-    def _procesar_frame_individual(self, frame, timestamp):
-        """Procesa un frame individual"""
-        # Verificar cache
-        frame_hash = hash(frame.tobytes())
-        if frame_hash in self.cache_resultados:
-            cache_time, resultado = self.cache_resultados[frame_hash]
-            if time.time() - cache_time < self.cache_timeout:
-                return resultado
-        
-        # Obtener dimensiones del frame
-        height, width = frame.shape[:2]
-        
-        # Redimensionar para procesamiento más rápido
-        scale = 800 / width
-        frame_resized = cv2.resize(frame, (800, int(height * scale)))
-        
-        # Convertir a escala de grises y optimizar
-        gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-        gray = clahe.apply(gray)
-        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=30)
-        
-        # Procesamiento optimizado para video
-        blurred = cv2.bilateralFilter(gray, 9, 75, 75)
-        edged = cv2.Canny(blurred, 50, 150)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-        edged = cv2.dilate(edged, kernel, iterations=2)
-        
-        # Encontrar y procesar contornos
-        keypoints = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = imutils.grab_contours(keypoints)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:8]
-        
-        mejor_deteccion = None
-        mejor_confianza = 0
-        
-        # Procesar cada contorno
-        for contour in contours:
-            epsilon = 0.02 * cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, epsilon, True)
+                self.last_detection_time = current_time
             
-            if 4 <= len(approx) <= 6:
-                x, y, w, h = cv2.boundingRect(contour)
-                
-                # Verificar dimensiones
-                if not self._validar_dimensiones(w, h):
-                    continue
-                    
-                # Extraer y procesar región de interés
-                roi = self._extraer_roi(frame, x, y, w, h, scale)
-                if roi is None:
-                    continue
-                    
-                # Detectar texto en ROI
-                resultado = self._detectar_texto(roi)
-                if resultado:
-                    mejor_deteccion, mejor_confianza = resultado
-                    
-        # Actualizar frame con resultados
-        if mejor_deteccion:
-            frame = self._dibujar_resultados(frame, x, y, w, h, mejor_deteccion)
+            # Convertir frame a formato PhotoImage
+            from PIL import Image, ImageTk
+            image_entrada = Image.fromarray(frame_entrada)
+            photo_entrada = ImageTk.PhotoImage(image=image_entrada)
+            self.entrada_label.config(image=photo_entrada)
+            self.entrada_label.image = photo_entrada
+        
+        # Actualizar cámara de salida
+        ret_salida, frame_salida = self.cap_salida.read()
+        if ret_salida:
+            frame_salida = cv2.cvtColor(frame_salida, cv2.COLOR_BGR2RGB)
+            frame_salida = cv2.resize(frame_salida, (400, 300))
             
-            # Actualizar cache
-            self.cache_resultados[frame_hash] = (time.time(), frame)
-            
-            # Procesar detección
-            self._procesar_deteccion(mejor_deteccion, mejor_confianza, timestamp)
+            # Convertir frame a formato PhotoImage
+            from PIL import Image, ImageTk
+            image_salida = Image.fromarray(frame_salida)
+            photo_salida = ImageTk.PhotoImage(image=image_salida)
+            self.salida_label.config(image=photo_salida)
+            self.salida_label.image = photo_salida
         
-        return frame
+        # Programar próxima actualización
+        self.root.after(30, self.update_cameras)
+    
+    def cleanup(self):
+        """Limpia recursos al cerrar"""
+        if self.cap_entrada.isOpened():
+            self.cap_entrada.release()
+        if self.cap_salida.isOpened():
+            self.cap_salida.release()
+
+class LoginWindow:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("QuickGate - Inicio de Sesión")
+        self.root.geometry("400x300")
+        self.token = None
         
-    def _validar_dimensiones(self, w, h):
-        """Valida las dimensiones de un posible plate"""
-        min_width, max_width = 60, 500
-        min_height, max_height = 20, 150
-        aspect_ratio = w/h
-        
-        return (min_width <= w <= max_width and 
-                min_height <= h <= max_height and 
-                2.0 <= aspect_ratio <= 4.5)
-                
-    def _extraer_roi(self, frame, x, y, w, h, scale):
-        """Extrae y preprocesa la región de interés"""
-        x1 = max(0, int(x/scale))
-        y1 = max(0, int(y/scale))
-        x2 = min(frame.shape[1], int((x + w)/scale))
-        y2 = min(frame.shape[0], int((y + h)/scale))
-        
-        roi = frame[y1:y2, x1:x2]
-        if roi.size == 0 or roi.shape[0] < 15 or roi.shape[1] < 30:
-            return None
-            
-        return cv2.resize(roi, (400, int(roi.shape[0] * 400/roi.shape[1])))
-        
-    def _detectar_texto(self, roi):
-        """Detecta texto en la región de interés"""
-        for img in self._generar_variantes(roi):
-            result = self.reader.readtext(
-                img,
-                allowlist=''.join(LETRAS_VALIDAS.keys()) + '0123456789',
-                batch_size=1,
-                detail=0,
-                paragraph=False,
-                height_ths=0.3,
-                width_ths=0.3,
-                contrast_ths=0.1,
-                low_text=0.2,
-                text_threshold=0.4,
-                link_threshold=0.2,
-                mag_ratio=1.5,
-                slope_ths=0.2
-            )
-            
-            for text in result:
-                placa, confianza = self._analizar_texto(text)
-                if placa and confianza > self.min_confidence:
-                    return placa, confianza
-        return None
-        
-    def _generar_variantes(self, img):
-        """Genera variantes de la imagen para mejor detección"""
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        return [
-            gray,
-            cv2.convertScaleAbs(gray, alpha=2.0, beta=0),
-            cv2.equalizeHist(gray),
-            cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        ]
-        
-    def _analizar_texto(self, text):
-        """Analiza el texto detectado para validar si es una placa"""
-        text = self._normalizar_texto(text)
-        if len(text) < 6:
-            return None, 0
-            
-        if text[0] not in LETRAS_VALIDAS:
-            return None, 0
-            
-        numeros = ''.join(c for c in text[1:] if c.isdigit())
-        if len(numeros) < 5:
-            return None, 0
-            
-        placa = text[0] + numeros[:6]
-        confianza = self._calcular_confianza(text, placa)
-        return placa, confianza
-        
-    def _normalizar_texto(self, text):
-        """Normaliza el texto detectado"""
-        replacements = {
-            'O': '0', 'I': '1', 'S': '5', 'B': '8',
-            'o': '0', 'i': '1', 's': '5', 'b': '8',
-            'D': '0', 'l': '1', 'Z': '2'
+        # Credenciales locales
+        self.local_credentials = {
+            "admin": hash_password("admin")
         }
-        for old, new in replacements.items():
-            text = text.replace(old, new)
-        return ''.join(c for c in text if c.isalnum()).upper()
         
-    def _calcular_confianza(self, text, placa):
-        """Calcula la confianza de la detección"""
-        confianza = 0.4
-        if len(text) == 7:
-            confianza += 0.3
-        if text[0] in ['G', 'A', 'L', 'O', 'P', 'E', 'I']:
-            confianza += 0.2
-        if text[1:].isdigit():
-            confianza += 0.2
-        if all(c in '0123456789' for c in text[1:]):
-            confianza += 0.1
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Frame principal
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Título
+        title_label = ttk.Label(main_frame, text="QuickGate", font=('Helvetica', 16, 'bold'))
+        title_label.grid(row=0, column=0, columnspan=2, pady=20)
+        
+        # Usuario
+        ttk.Label(main_frame, text="Usuario:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.username_entry = ttk.Entry(main_frame)
+        self.username_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
+        
+        # Contraseña
+        ttk.Label(main_frame, text="Contraseña:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.password_entry = ttk.Entry(main_frame, show="*")
+        self.password_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
+        
+        # Estado
+        self.status_label = ttk.Label(main_frame, text="")
+        self.status_label.grid(row=3, column=0, columnspan=2, pady=5)
+        
+        # Botón de inicio de sesión
+        login_button = ttk.Button(main_frame, text="Iniciar Sesión", command=self.login)
+        login_button.grid(row=4, column=0, columnspan=2, pady=20)
+        
+        # Configurar expansión
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Centrar ventana
+        self.center_window()
+        
+    def center_window(self):
+        """Centra la ventana en la pantalla"""
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
+        
+    def login(self):
+        """Verifica las credenciales localmente"""
+        try:
+            username = self.username_entry.get()
+            password = self.password_entry.get()
             
-        # Penalizaciones
-        penalizaciones = {
-            'B8': 0.05, 'O0': 0.05,
-            'I1': 0.05, 'S5': 0.05
-        }
-        for chars, penalty in penalizaciones.items():
-            if any(c in chars for c in text[1:]):
-                confianza -= penalty
+            if username in self.local_credentials and self.local_credentials[username] == hash_password(password):
+                self.status_label.config(text="Acceso concedido", foreground="green")
+                self.token = "local_auth_token"
+                self.root.after(1000, self.start_detector)
+            else:
+                self.status_label.config(text="Credenciales inválidas", foreground="red")
                 
-        return confianza
+        except Exception as e:
+            self.status_label.config(text="Error al iniciar sesión", foreground="red")
+            print(f"Error de inicio de sesión: {str(e)}")
+    
+    def start_detector(self):
+        """Inicia el detector después del login exitoso"""
+        self.root.withdraw()  # Ocultar ventana de login
+        detector_root = tk.Toplevel()
+        detector_root.protocol("WM_DELETE_WINDOW", lambda: self.cleanup(detector_root))
+        self.detector = DetectorGUI(detector_root)
         
-    def _dibujar_resultados(self, frame, x, y, w, h, deteccion):
-        """Dibuja los resultados en el frame"""
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.putText(frame, deteccion, (x, y-10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        return frame
-        
-    def _procesar_deteccion(self, deteccion, confianza, timestamp):
-        """Procesa una nueva detección"""
-        tiempo_actual = time.time()
-        ultima_deteccion = self.ultima_deteccion.get(deteccion, 0)
-        
-        if tiempo_actual - ultima_deteccion > self.tiempo_minimo_entre_detecciones:
-            self.ultima_deteccion[deteccion] = tiempo_actual
-            self.detecciones_totales += 1
+    def cleanup(self, detector_root):
+        """Limpia recursos y cierra la aplicación"""
+        if hasattr(self, 'detector'):
+            self.detector.cleanup()
+        detector_root.destroy()
+        self.root.destroy()
             
-            print(f"\n¡Nueva detección en {self.nombre}! (#{self.detecciones_totales})")
-            print(f"Tipo: {LETRAS_VALIDAS[deteccion[0]]}")
-            print(f"Placa: {deteccion}")
-            print(f"Confianza: {confianza:.2f}\n")
-            
-            try:
-                self.api_client.enviar_deteccion({
-                    'placa': deteccion,
-                    'tipo': LETRAS_VALIDAS[deteccion[0]],
-                    'camara': self.nombre,
-                    'confianza': confianza,
-                    'timestamp': timestamp
-                })
-            except Exception as e:
-                print(f"Error al enviar detección al API: {str(e)}")
+    def run(self):
+        """Ejecuta la interfaz de login"""
+        self.root.mainloop()
+        return self.token
 
 def main():
-    print("Iniciando sistema de detección de placas...")
+    print("Iniciando QuickGate - Sistema de Detección de Placas")
+    print("Por favor, inicie sesión para continuar...")
     
-    # Inicializar detectores
-    detector_entrada = DetectorPlacas("Cámara Entrada")
-    detector_salida = None
-    if CAMERA_SALIDA is not None:
-        detector_salida = DetectorPlacas("Cámara Salida")
+    login_window = LoginWindow()
+    token = login_window.run()
     
-    print("Configurando cámaras...")
-    
-    # Inicializar cámaras
-    camara_entrada = CameraManager(CAMERA_ENTRADA)
-    camara_salida = None
-    if CAMERA_SALIDA is not None:
-        camara_salida = CameraManager(CAMERA_SALIDA)
-    
-    try:
-        # Crear y configurar ventana
-        cv2.namedWindow('Cámara Entrada', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Cámara Entrada', 800, 600)
-        cv2.moveWindow('Cámara Entrada', 50, 50)
-        
-        # Iniciar cámara de entrada
-        print("Iniciando cámara de entrada...")
-        camara_entrada.iniciar()
-        
-        print("Sistema listo para detectar placas...")
-        
-        while True:
-            # Procesar cámara de entrada
-            ret_entrada, timestamp_entrada, frame_entrada = camara_entrada.obtener_frame()
-            if ret_entrada:
-                # Procesar frame y mostrar resultado
-                frame_procesado = detector_entrada.procesar_frame(frame_entrada, timestamp_entrada)
-                cv2.imshow('Cámara Entrada', frame_entrada)
-            
-            # Salir si se presiona 'q'
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("\nCerrando sistema...")
-                break
-        
-    except KeyboardInterrupt:
-        print("\nDetección interrumpida por el usuario")
-    except Exception as e:
-        print(f"\nError durante la detección: {str(e)}")
-    finally:
-        # Detener cámaras
-        if camara_entrada:
-            camara_entrada.detener()
-        
-        # Cerrar ventanas
-        cv2.destroyAllWindows()
+    if token:
+        print("Sesión iniciada correctamente")
+    else:
+        print("Error al iniciar sesión")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
