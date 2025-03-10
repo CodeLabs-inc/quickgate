@@ -1,56 +1,55 @@
-import cv2
 import os
 import socket
 
+# Parking configuration
+PARKING_ID = "Agora"
+
+# Camera configuration
+CAMERA_ENTRADA = {
+    "id": 0,  # Cámara principal (webcam integrada o primera USB)
+    "nombre": "Cámara Entrada",
+    "resolucion": {
+        "width": 1280,
+        "height": 720
+    }
+}
+
+CAMERA_SALIDA = {
+    "id": 1,  # Segunda cámara USB
+    "nombre": "Cámara Salida",
+    "resolucion": {
+        "width": 1280,
+        "height": 720
+    }
+}
+
+# Configuración de detección
+DETECTION_CONFIG = {
+    "min_confidence": 0.45,  # Confianza mínima para considerar una detección válida
+    "min_area": 1000,  # Área mínima del contorno
+    "aspect_ratio": {  # Proporción de aspecto válida para placas
+        "min": 2.0,
+        "max": 5.0
+    },
+    "cooldown": 5  # Segundos entre detecciones de la misma placa
+}
+
+# Configuración del API y Base de Datos
+API_CONFIG = {
+    "base_url": "https://server.quickgate.xyz",
+    "endpoints": {
+        "login": "/device/login",
+        "enter": "/ticket/enter/67980a17f8a1b530d25bd57a",  # Endpoint para entrada con gateId
+        "exit": "/ticket/exit/67980a17f8a1b530d25bd57a"     # Endpoint para salida con gateId
+    }
+}
+
 # Configuración del dispositivo
 DEVICE_CONFIG = {
-    'parking_id': os.getenv('PARKING_ID', 'Agora'),  # ID del parqueo
-    'camera_position': os.getenv('CAMERA_POSITION', 'entrada'),  # Posición de la cámara
-    'api_url': os.getenv('API_URL', 'http://localhost:3000/api'),  # URL del dashboard
-    'device_name': os.getenv('DEVICE_NAME', socket.gethostname())  # Nombre del dispositivo
-}
-
-# Configuración de cámaras
-# Configuración común para ambas cámaras
-CAMARA_CONFIG_BASE = {
-    'tipo': 'USB',
-    'fps': 30,             # FPS estándar
-    'max_intentos': 3,     # Más intentos para asegurar la conexión
-    'tiempo_espera': 1,    # Espera entre intentos
-    'timeout': 5,          # Timeout para inicialización
-    'resolucion': {
-        'width': 640,      # Resolución confirmada por prueba
-        'height': 480
+    "nombre": "QuickGate-Device-001",
+    "auth": {
+        "username": "agoraHQ",
+        "password": "12345678"
     },
-    'parametros': {
-        'backend': cv2.CAP_DSHOW  # Usar DirectShow en Windows
-    }
-}
-
-# Configuración específica para cámara de entrada
-CAMERA_ENTRADA = CAMARA_CONFIG_BASE.copy()
-CAMERA_ENTRADA.update({
-    'source': 0,           # Cámara USB en índice 0
-    'nombre': 'entrada',
-    'resolucion': {
-        'width': 640,      # Resolución confirmada
-        'height': 480
-    }
-})
-
-# Configuración específica para cámara de salida - DESHABILITADA
-CAMERA_SALIDA = None  # Solo tenemos una cámara disponible por ahora
-
-# Configuración del API y autenticación
-API_CONFIG = {
-    'base_url': os.getenv('API_URL', 'http://localhost:3000/api'),
-    'auth_endpoint': '/device/auth',
-    'detection_endpoint': '/detections',
-    'status_endpoint': '/device/status',
-    'headers': {
-        'Content-Type': 'application/json'
-    },
-    'retry_attempts': 3,
-    'retry_delay': 5,  # segundos
-    'heartbeat_interval': 60  # segundos
+    "gate_id": "67980a17f8a1b530d25bd57a"  # ID del gate asignado
 }
