@@ -129,7 +129,7 @@ const OperatorDashboard = () => {
                   <p style={{ fontSize: '15px' }}>Salud Brazos</p>
                   <p style={{ fontSize: '12px', color: '#FFFFFF70' }}>Calidad del funcionamiento mecanico</p>
                 </div>
-                <div style={{ height: '10px', width: '10px', borderRadius: '50%', background: 'yellowgreen' }} />
+                <div style={{ height: '10px', width: '10px', borderRadius: '50%', background: 'tomato' }} />
               </div>
 
               <div className='w- full flex flex-row items-center justify-between gap-2'>

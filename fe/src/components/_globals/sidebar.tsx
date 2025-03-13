@@ -96,9 +96,9 @@ function Sidebar() {
               icon={
                 <CircleHelp width={18} />
               }
-              text="F.A.Q"
+              text="Chat Soporte"
               isOpen={isSidepanelOpen}
-              href="/dashboard/faq"
+              href="/dashboard/support"
             />
             <ElementSidebar
               currentPath={path}
@@ -258,7 +258,7 @@ function Sidebar() {
               href="/dashboard/gates/settings/equipment"
             />
 
-<ElementSidebar
+            <ElementSidebar
               currentPath={path}
               icon={
                 <Phone width={20} />

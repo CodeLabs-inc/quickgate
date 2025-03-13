@@ -11,7 +11,7 @@ interface Props {
 }
 
 
-function Page({ children, sidebarHidden,  style }: Props) {
+function PageSecondary({ children, sidebarHidden,  style }: Props) {
     
 
     return (
@@ -20,16 +20,13 @@ function Page({ children, sidebarHidden,  style }: Props) {
                 !sidebarHidden &&
                 <Sidebar/>
             }
-            <div className={styles.containerPage} style={{paddingRight: '15px', paddingBottom: '15px', paddingLeft: '0px', boxSizing: 'border-box'}}>
-                <div className={styles.cardPage} 
-                style={{
-                    ...style
-                }}>
+            <div className={styles.containerPage} style={{paddingRight: '15px', paddingBottom: '15px', paddingLeft: '0px'}}>
+                
                     {children}
-                </div>
+                
             </div>
         </div>
     )
 }
 
-export default Page
+export default PageSecondary

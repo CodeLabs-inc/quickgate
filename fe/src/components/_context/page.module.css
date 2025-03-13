@@ -16,19 +16,13 @@
     border-radius: 20px;
 
 
-    .controller{
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 100;
-    }
 }
 
 .videoFeedMain{
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 20px;
 }
 
 .videoFeedSmall{
@@ -61,6 +55,25 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 0;
+        border: none;
     }
     
+}
+
+
+.callTitle{
+    font-size: 30px;
+    margin-bottom: 20px;
+    width: 100%;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.pictureCaller{
+    height: 280px;
+    width: 280px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.114)
 }

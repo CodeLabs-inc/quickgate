@@ -12,6 +12,7 @@ const {
   sendVerificationEmail,
   sendAdminAccountCreationEmail,
 } = require("../utils/mail");
+
 const { uploadFileToS3 } = require("../utils/uploadFileToS3");
 const { getCallerList } = require("../sockets/calls");
 
@@ -46,7 +47,7 @@ router.route("/register").post(async (req, res) => {
     },
     booleans: {
       isVerified: source && source === "app" ? true : false,
-    }
+    },
   });
 
   const save = await newAccount.save();
@@ -169,8 +170,9 @@ router.route("/login").post(async (req, res) => {
     });
   }
 
-
-  const countVehicles = await Vehicles.find({ ownerId: searchAccount._id }).countDocuments();
+  const countVehicles = await Vehicles.find({
+    ownerId: searchAccount._id,
+  }).countDocuments();
 
   const token = signToken(email.toLowerCase(), hashPassword(password));
 
@@ -373,13 +375,11 @@ router.route("/settings/access/email").put(async (req, res) => {
       .json({ success: false, message: "Error updating email" });
   }
 
-  res
-    .status(200)
-    .json({
-      success: true,
-      message: "Email updated successfully",
-      data: token,
-    });
+  res.status(200).json({
+    success: true,
+    message: "Email updated successfully",
+    data: token,
+  });
 });
 router.route("/settings/access/password").put(async (req, res) => {
   const { password, newPassword } = req.body;
@@ -411,13 +411,11 @@ router.route("/settings/access/password").put(async (req, res) => {
   //Sing new token
   const token = signToken(auth.account.email, hashPassword(newPassword));
 
-  res
-    .status(200)
-    .json({
-      success: true,
-      message: "Password updated successfully",
-      data: token,
-    });
+  res.status(200).json({
+    success: true,
+    message: "Password updated successfully",
+    data: token,
+  });
 });
 router.route("/settings/notifications/get").get(async (req, res) => {
   const auth = await AuthenticateToken(req, res);
@@ -443,16 +441,9 @@ router.route("/settings/notifications/get").get(async (req, res) => {
     message: "Notifications fetched successfully",
     data: searchAccount.notifications,
   });
-})
+});
 router.route("/settings/notifications/update").put(async (req, res) => {
-  const {
-    balanceUse,
-    parking,
-    exit,
-    lowBalance,
-    alerts,
-  } = req.body;
-
+  const { balanceUse, parking, exit, lowBalance, alerts } = req.body;
 
   const auth = await AuthenticateToken(req, res);
 
@@ -478,15 +469,11 @@ router.route("/settings/notifications/update").put(async (req, res) => {
       .json({ success: false, message: "Error updating notifications" });
   }
 
-  res
-    .status(200)
-    .json({
-      success: true,
-      message: "Notifications updated successfully",
-    });
-})
-
-
+  res.status(200).json({
+    success: true,
+    message: "Notifications updated successfully",
+  });
+});
 
 /*  Globals  */
 router.route("/profiles/all").get(async (req, res) => {
@@ -583,8 +570,6 @@ router.route("/users/all").get(async (req, res) => {
   });
 }); //Not paginated
 
-
-
 /* Admin Create Operator */
 router.route("/admin/create").post(async (req, res) => {
   const { email, name, surname, type } = req.body;
@@ -636,7 +621,7 @@ router.route("/admin/update/:userId").put(async (req, res) => {
   const { email, name, surname, type } = req.body;
   const { userId } = req.params;
 
-  console.log(req.body)
+  console.log(req.body);
 
   if (!email || !name || !surname || !type) {
     return res
@@ -680,18 +665,15 @@ router.route("/admin/update/:userId").put(async (req, res) => {
     .json({ success: true, message: "Account created successfully" });
 });
 
-
 /* Calls */
 router.route("/call/getcallers").get(async (req, res) => {
-
-
-  const list = await getCallerList()
+  const list = await getCallerList();
 
   return res.status(200).json({
     success: true,
     message: "callers found",
-    data: list
-  })
-})
+    data: list,
+  });
+});
 
 module.exports = router;

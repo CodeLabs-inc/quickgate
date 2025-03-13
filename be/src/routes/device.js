@@ -1,7 +1,11 @@
 const express = require("express");
 const hashPassword = require("../utils/sha256");
 const { Device } = require("../database/schemas");
-const { signToken, signTokenDevice, AuthenticateToken } = require("../utils/jwt");
+const {
+  signToken,
+  signTokenDevice,
+  AuthenticateToken,
+} = require("../utils/jwt");
 const router = express.Router();
 
 router.route("/register").post(async (req, res) => {
@@ -60,50 +64,51 @@ router.route("/login").post(async (req, res) => {
     success: true,
     message: "Login succesfull",
     data: token,
-    gateId: searchAccount.gateId
+    gateId: searchAccount.gateId,
   });
 });
-
-
 
 /* 
     @desc get the Server device of a gate 
 */
-router.route('/get/all').get(async (req, res) => {
-    const auth = await AuthenticateToken(req)
+router.route("/get/all").get(async (req, res) => {
+  const auth = await AuthenticateToken(req);
 
-    if (!auth || auth.account.user.type !== 'operator' || !auth.account.gateId){
-        return res
-        .status(400)
-        .json({
-            success: false,
-            message: 'Not authorized'
-        })
-    }
+  if (!auth || auth.account.user.type !== "operator" || !auth.account.gateId) {
+    return res.status(400).json({
+      success: false,
+      message: "Not authorized",
+    });
+  }
 
+  const getDevice = await Device.findOne({
+    gateId: auth.account.gateId,
+  });
 
-    const getDevice = await Device.findOne({
-        gateId: auth.account.gateId
-    })
+  if (!getDevice) {
+    return res.status(201).json({
+      success: true,
+      message: "No devices found",
+    });
+  }
 
-    if (!getDevice){
-        return res
-        .status(201)
-        .json({
-            success: true,
-            message: 'No devices found',
-        })
-    }
+  //Get the MiniPC Device Tailscale IP
+  const { ip_address } = getDevice;
 
-    return res
-    .status(200)
-    .json({
-        success: true,
-        message: 'Devices found',
-        data: getDevice
-    })
+  const response = await fetch(`http://${ip_address}:5001/device`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
+  
 
-})
+  return res.status(200).json({
+    success: true,
+    message: "Devices found",
+    data: await response.json(),
+  });
+});
 
 module.exports = router;

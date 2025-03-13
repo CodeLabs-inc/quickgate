@@ -3,9 +3,9 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 const FormData = global.FormData
 
-//https://gater-be.vercel.app
+//https://server.quickgate.xyz
 //http://localhost:4000
-const API_URL = 'http://localhost:4000'
+const API_URL = 'https://server.quickgate.xyz'
 
 const TOKEN_KEY = "quickgate_token";
 export const axiosInstance = axios.create({

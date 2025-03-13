@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { getDevices } from "@/services/api"
 import toast from "react-hot-toast"
+import LoaderWhite from "@/components/loaders/LoaderWhite"
 
 // Device type definition
 type DeviceStatus = "online" | "offline" | "warning" | "maintenance"
@@ -77,50 +78,68 @@ export default function SettingsEquipmentGate() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
 
-
+  const [isLoading, setIsLoading] = useState(true)
   const [devices, setDevices] = useState<any>([])
 
 
 
   const handleRefresh = async () => {
-  
     handleFetchDevices()
   }
   const handleFetchDevices = async () => {
+    setIsLoading(true)
     setDevices([])
-    const call = await getDevices()
 
-    if (call.status == 400){
+    const call = await getDevices()
+    setIsLoading(false)
+
+    if (call.status == 400) {
       toast.error('Error nel cargar los dispositivos')
       return
     }
 
-    console.log(call.data)
 
-    if (call.status == 201){
-      return 
+    if (call.status == 201) {
+      return
     }
 
-    if (call.status === 200){
+    if (call.status === 200) {
       const deviceObject = {
-        id: call.data.data._id,
-        name: 'Servidor Principal',
+        id: call.data.data.id ?? 'no_id',
+        name: call.data.data.name ?? 'Servidor Principal',
         type: 'computer',
-        status: 'online',
-        lastSeen: '--',
-        location: 'HQ Parqueo',
-        ipAddress: call.data.data.ip_address
+        status: call.data.data.status ?? 'offline',
+        lastSeen: new Date(call.data.data.lastSeen).toLocaleDateString('es-ES', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) ?? '--',
+        location: 'Servidor',
+        ipAddress: call.data.data.ipAddress ?? '--'
       }
 
-      setDevices((prevDevices: any) => [...prevDevices, deviceObject])
+      let camerasObjects = []
+      if (call.data.data.cameras && call.data.data.cameras.length > 0) {
+
+        camerasObjects = call.data.data.cameras.map((camera: any) => {
+          return {
+            id: camera.id,
+            name: camera.name,
+            type: 'camera',
+            status: 'online',
+            lastSeen: camera.lastSeen,
+            location: camera.location,
+            ipAddress: camera.ipAddress
+          }
+        })
+
+      }
+
+
+      setDevices((prevDevices: any) => [...prevDevices, deviceObject, ...camerasObjects])
     }
 
     console.log(call)
   }
 
 
-  useEffect(()=> {
-    console.log('ok')
+  useEffect(() => {
     handleFetchDevices()
   }, [])
 
@@ -179,7 +198,7 @@ export default function SettingsEquipmentGate() {
         )
     }
   }
-  
+
 
   return (
     <div className="dark w-full min-h-screentext-gray-200 ">
@@ -242,19 +261,19 @@ export default function SettingsEquipmentGate() {
             </TabsList>
 
             <TabsContent value="all" className="mt-4">
-              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} />
+              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} isLoading={isLoading} />
             </TabsContent>
 
             <TabsContent value="computer" className="mt-4">
-              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} />
+              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} isLoading={isLoading} />
             </TabsContent>
 
             <TabsContent value="camera" className="mt-4">
-              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} />
+              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} isLoading={isLoading} />
             </TabsContent>
 
             <TabsContent value="gate" className="mt-4">
-              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} />
+              <DeviceList devices={filteredDevices} getDeviceIcon={getDeviceIcon} getStatusBadge={getStatusBadge} isLoading={isLoading} />
             </TabsContent>
           </Tabs>
         </div>
@@ -267,9 +286,20 @@ interface DeviceListProps {
   devices: Device[]
   getDeviceIcon: (type: DeviceType) => JSX.Element
   getStatusBadge: (status: DeviceStatus) => JSX.Element
+  isLoading: boolean
 }
 
-function DeviceList({ devices, getDeviceIcon, getStatusBadge }: DeviceListProps) {
+function DeviceList({ devices, getDeviceIcon, getStatusBadge, isLoading }: DeviceListProps) {
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center h-[300px]">
+        <LoaderWhite/>
+      </div>
+    )
+  }
+
+
   if (devices.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -283,8 +313,8 @@ function DeviceList({ devices, getDeviceIcon, getStatusBadge }: DeviceListProps)
   return (
     <div className="space-y-3">
       {devices.map((device) => (
-        <Card key={device.id} 
-        className="overflow-hidden"
+        <Card key={device.id}
+          className="overflow-hidden"
           style={{
             background: "var(--status-background)",
             borderRadius: '30px'

@@ -6,12 +6,13 @@ import Peer from 'peerjs';
 import { SocketContext } from './SocketContext';
 import Modal from '../_globals/modal';
 import Button from '../buttons/Button';
-import { useRouter } from 'next/navigation';
 import styles from './page.module.css'
 import Page from '../_globals/page';
 import Header from '../_globals/header';
 import { PhoneMissed } from 'lucide-react';
 import Title from '../titles/Title';
+import { getCallersList } from '@/services/api';
+import PageSecondary from '../_globals/pageSecondary';
 
 export const CallContext = createContext({
     peerId: '',
@@ -31,7 +32,7 @@ interface CallProviderProps {
 
 export const CallProvider = ({ children }: CallProviderProps) => {
     const { socket } = useContext(SocketContext)
-    const router = useRouter();  // Initialize the router
+
 
     const [peerId, setPeerId] = useState('');
     const [remotePeerId, setRemotePeerId] = useState('');
@@ -73,8 +74,7 @@ export const CallProvider = ({ children }: CallProviderProps) => {
         });
 
         newPeer.on('call', (call) => {
-
-            setIsReceivingCall(true)
+            handleFetchAllCallerInfo(call)
             setCall(call)
         });
 
@@ -115,23 +115,39 @@ export const CallProvider = ({ children }: CallProviderProps) => {
         if (call) {
             call.close();
         }
-    
+
         // Stop all tracks on the local camera stream
         if (myVideoRef.current && myVideoRef.current.srcObject) {
             const stream = myVideoRef.current.srcObject;
             stream.getTracks().forEach((track: any) => track.stop());
             myVideoRef.current.srcObject = null;
         }
-    
+
         // Optionally, stop the remote stream as well
         if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
             const stream = remoteVideoRef.current.srcObject;
             stream.getTracks().forEach((track: any) => track.stop());
             remoteVideoRef.current.srcObject = null;
         }
-    
+
         setIsOnCall(false);
     };
+
+    const [callerData, setCallerData] = useState<any>(null)
+    const handleFetchAllCallerInfo = async (call: any) => {
+        const fetch = await getCallersList()
+
+        if (fetch.success) {
+
+            const { data } = fetch;
+            const callerData = data.find((caller: any) => caller.peerId === call.peer)
+
+            setCallerData(callerData)
+            setIsReceivingCall(true)
+        }
+    }
+
+
 
     return (
         <CallContext.Provider value={{ peerId, remotePeerId, setRemotePeerId, callPeer, myVideoRef, remoteVideoRef, isReceivingCall, setIsReceivingCall }}>
@@ -142,31 +158,53 @@ export const CallProvider = ({ children }: CallProviderProps) => {
             {isReceivingCall && (
                 <Modal
                     isOpen={isReceivingCall}
-                    onClose={() => { setIsReceivingCall(false) }}
+                    onClose={() => {setIsReceivingCall(false) }}
                 >
                     <audio src="/audio/ringtone.mp3" autoPlay loop />
-                    <Title
-                        title='Estas recibiendo una llamada'
-                        subtitle='Contestar?'
+
+                    <p className={styles.callTitle}>
+                        {
+                            callerData ?
+                                callerData.user.user.name : 'noname'
+                        }
+                    </p>
+                    <img
+                        src={callerData && callerData.user.user.profile_picture !== '' ? callerData.user.user.profile_picture : '/fallbacks/profile_picture.jpg'}
+                        alt=""
+                        className={styles.pictureCaller}
                     />
-                    <Button
-                        text='Si'
-                        color='white'
-                        backgroundColor='green'
-                        onClick={() => {
-                            acceptIncomingCall()
-                            setIsReceivingCall(false)
-                        }}
-                    />
+
+
+
+                    <div className='w-full flex flex-row gap-2 mt-4'>
+
+                        <Button
+                            text='Acceptar'
+                            color='white'
+                            backgroundColor='green'
+                            onClick={() => {
+                                acceptIncomingCall()
+                                setIsReceivingCall(false)
+                            }}
+                        />
+                        <Button
+                            text='Rechazar'
+                            color='white'
+                            backgroundColor='tomato'
+                            onClick={() => {
+                                setIsReceivingCall(false)
+                            }}
+                        />
+                    </div>
                 </Modal>
             )}
 
 
             {
-                isOnCall && (
+                    isOnCall && (
                     <div
                         style={{
-                            height:'100vh',
+                            height: '100vh',
                             width: '100vw',
                             position: 'absolute',
                             top: '0',
@@ -175,10 +213,12 @@ export const CallProvider = ({ children }: CallProviderProps) => {
                     >
                         <div className={styles.main}>
                             <Header title={'Overview'} />
-                            <Page
+                            <PageSecondary
                                 style={{
                                     height: '100%',
-                                    padding: '0',
+                                    
+                                    paddingRight: '15px',
+                                    background: 'none'
                                 }}
                             >
                                 <div className={styles.containerVideoFeed}>
@@ -186,11 +226,11 @@ export const CallProvider = ({ children }: CallProviderProps) => {
                                     <video className={styles.videoFeedMain} ref={remoteVideoRef} autoPlay playsInline />
                                     <div className={styles.controls}>
                                         <button onClick={closeCurrentCall} className={styles.buttonControls}>
-                                            <PhoneMissed/>
+                                            <PhoneMissed width={20} style={{transform: 'translateY(1px) translateX(-1px)'}} />
                                         </button>
                                     </div>
                                 </div>
-                            </Page>
+                            </PageSecondary>
                         </div>
                     </div>
 
